@@ -3,6 +3,7 @@ import EOVoxelCraft as eovc
 import geopandas as gpd
 from shapely.geometry import Polygon
 import os
+import logging
 
 class GeneralTest(unittest.TestCase):
     def setUp(self):
@@ -99,5 +100,30 @@ class TestGEE(unittest.TestCase):
     def test_create(self):
         self.crafter.create(**self.arguments)
 
+class TestASF(unittest.TestCase):
+    def setUp(self):
+        self.crafter = eovc.init('asf')
+        self.gdf = gpd.GeoDataFrame(geometry=[Polygon(
+            [(446993, 3383569),
+            (446993, 3371569),
+            (434993, 3371569),
+            (434993, 3383569),
+            (446993, 3383569)])],
+            crs='EPSG:32616')
+        self.arguments = dict(shp=self.gdf, collection='sentinel-1', start_date='2021-01-01', end_date='2021-01-31', processing_level='GRD')
+
+    def test_collections(self):
+        col = self.crafter.retrieve_collections(filter_by_name='sentinel-1')
+        print(f"Number of collections retrieved: {len(col)}")
+        self.assertTrue(len(col) > 0)
+
+    def test_search(self):
+        items = self.crafter.search(**self.arguments)
+        # [print(item.properties["fileName"]) for item in items]
+        self.assertTrue(len(items) > 0)
+
+    def test_download(self):
+        pass
+        
 if __name__ == '__main__':
     unittest.main()

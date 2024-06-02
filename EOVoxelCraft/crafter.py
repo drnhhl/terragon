@@ -17,6 +17,11 @@ import rioxarray as rxr
 import re
 import pandas as pd
 import shutil
+import asf_search as asf
+import hyp3_sdk as sdk
+from datetime import datetime
+from glob import glob
+from .utils import load_tif
 
 class VoxelCrafter(ABC):
     base_url = None
@@ -39,15 +44,16 @@ class VoxelCrafter(ABC):
 
     @abstractmethod
     def retrieve_collections(self, ):
-        pass
-
-    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None):
+        pass#
+    
+    # to much varibales in search, how to make it more flexible?
+    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None, processing_level:str=None):
         """Take all arguments and store them."""
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
             shp = gpd.GeoDataFrame(geometry=[shp.unary_union], crs=shp.crs)
         self._parameters.update({'shp': shp, 'collection': collection, 'bands': bands, 'start_date': start_date,
-                                'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder})
+                                'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder, "processing_level": processing_level})
         
     @abstractmethod
     def download(self, items, create_minicube=True):
@@ -118,7 +124,6 @@ class PC(VoxelCrafter):
         items = search.item_collection()
         if len(items) == 0:
             raise ValueError(f"No items found")
-        
         return items
 
     def download(self, items=None, create_minicube=True):
@@ -244,11 +249,128 @@ class GEE(VoxelCrafter):
 
 class CDSE(VoxelCrafter):
 # https://documentation.dataspace.copernicus.eu/APIs/STAC.html
-    def __init__(self, credentials=None):
+    def __init__(self, credentials_path:str=None):
         super().__init__()
+
         pass
 
 class ASF(VoxelCrafter):
-    def __init__(self, credentials=None):
+    def __init__(self, credentials_path:str=None):
         super().__init__()
-        pass
+        self.credentials = {}
+        if credentials_path:
+            self.set_credentials(credentials_path)
+
+    def set_credentials(self, credentials_path:str):
+        with open(credentials_path, "r") as file:
+            self.credentials = json.load(file) # will store username and password
+    
+    def retrieve_collections(self, filter_by_name:str=None):
+        # Retrieve all collections from asf.PLATFORM that do not start with "_"
+        collections = [getattr(asf.PLATFORM, attr) for attr in dir(asf.PLATFORM) if not attr.startswith("_")]
+
+        if collections:
+            if filter_by_name:
+                filter_by_name_upper = filter_by_name.upper()
+                # Filter collections case-insensitively, maintaining original names
+                selected_collections = [collection for collection in collections if filter_by_name_upper in collection.upper()]
+                return selected_collections
+            else:
+                # Return all collections if no filter is specified
+                return collections
+        else:
+            # Raise an error if no collections could be retrieved
+            raise RuntimeError("Failed to retrieve collections")
+
+    def search(self, **kwargs):
+        super().search(**kwargs)
+
+        start_date = self.get_param("start_date")
+        end_date = self.get_param("end_date")
+        collection = self.get_param("collection")	
+        shp_4326 = self._reproject_shp(self.get_param('shp', raise_error=True))
+        shp_4326_wkt = shp_4326.iloc[0]['geometry'].wkt
+        processing_level = self.get_param("processing_level")
+
+        print("Processing level: ", processing_level)
+
+        # TODO HOW CAN WE ALLOW FOR USE TO ASK FOR MORE SEARCH PARAMETERS WITHOUT LISTING ALL OFTHEM AS FUNCTION PARAMETERS
+        items = asf.geo_search(
+            platform=collection,
+            start=datetime.strptime(start_date, "%Y-%m-%d"),
+            end=datetime.strptime(end_date, "%Y-%m-%d"),
+            intersectsWith=shp_4326_wkt,
+            processingLevel=processing_level)
+
+        if len(items) == 0:
+            raise ValueError(f"No items found")
+        return items   
+
+    def start_rtc_jobs(self, items, rtc_specifications=None, job_name="rtc_jobs"):
+        granule_ids = [item.properties["sceneName"] for item in items]
+        # Prepare default parameters and update with rtc_specifications if provided
+        default_params = {"name": job_name}
+        if rtc_specifications:
+            default_params.update(rtc_specifications)
+
+        # Create a batch job for all granule IDs
+        rtc_jobs = sdk.Batch()
+        for granule_id in granule_ids:
+            rtc_jobs += self.hyp3_session.submit_rtc_job(granule_id, **default_params)
+
+        return rtc_jobs
+
+    def start_insar_jobs(self, insar_specifications=None, job_name="insar_jobs"):
+        # Prepare default parameters and update with rtc_specifications if provided
+        default_params = {"name": job_name}
+        if insar_specifications:
+            default_params.update(insar_specifications)
+
+        # Create a batch job for all granule IDs
+        insar_jobs = sdk.Batch()
+        for result in self.search_results:
+            granule_id = result.properties["sceneName"]
+            neighbors = self.get_nearest_neighbors(granule_id, max_neighbors=2)
+            for secondary in neighbors:
+                insar_jobs += self.hyp3_session.submit_insar_job(
+                    granule_id, secondary.properties["sceneName"], **default_params
+                )
+        return insar_jobs
+
+    def build_minicube(self, filenames):
+        if len(filenames) < 1:
+            raise ValueError("No files provided to merge.")
+
+        shp = self.get_param('shp')
+        num_workers = self.get_param('num_workers', 1)
+        resolution = self.get_param('resolution', 10)
+        
+        out = Parallel(n_jobs=num_workers)(delayed(load_tif)(fn, shp, resolution) for fn in filenames)
+
+        ds = xr.concat(out, dim='time').compute()
+        ds = ds.sortby('time')
+        ds = ds.to_dataset(dim='band')
+        ds = ds.rename_vars({dim: name for dim, name in zip(ds.data_vars.keys(), ds.attrs['long_name'])})
+        if 'FILL_MASK' in ds.data_vars:
+            ds = ds.drop_vars('FILL_MASK')
+
+        return ds
+
+    def download(self, items, create_minicube=True):
+        assert len(items) > 0, "No images to download in items."
+        
+        ouput_dir = self.get_param('download_folder', raise_error=True)
+        if not os.path.exists(ouput_dir):
+            os.makedirs(ouput_dir)
+
+        asf_session = asf.ASFSession().auth_with_creds(self.credentials["username"], self.credentials["password"])
+        item_urls = [item["url"] for item in items]
+        asf.download_urls(urls=item_urls, path=ouput_dir, session=asf_session, processes=self.get_param('num_workers', 1))
+
+        filenames = glob(os.path.join(ouput_dir, "*.tif"))
+
+        if create_minicube:
+            return self.build_minicube(filenames)
+        else:
+            return filenames
+
