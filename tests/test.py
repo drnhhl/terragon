@@ -103,6 +103,7 @@ class TestGEE(unittest.TestCase):
 class TestASF(unittest.TestCase):
     def setUp(self):
         self.crafter = eovc.init('asf')
+        self.crafter.set_credentials(credentials_path=r"C:\Users\hoeh_pa\Desktop\EOVoxelCraft\credentials\asf_credentials.json")
         self.gdf = gpd.GeoDataFrame(geometry=[Polygon(
             [(446993, 3383569),
             (446993, 3371569),
@@ -110,20 +111,22 @@ class TestASF(unittest.TestCase):
             (434993, 3383569),
             (446993, 3383569)])],
             crs='EPSG:32616')
-        self.arguments = dict(shp=self.gdf, collection='sentinel-1', start_date='2021-01-01', end_date='2021-01-31', processing_level='GRD')
+        self.arguments = dict(shp=self.gdf, collection='sentinel-1', start_date='2021-01-01', end_date='2021-06-30', download_folder='downloads')
 
     def test_collections(self):
         col = self.crafter.retrieve_collections(filter_by_name='sentinel-1')
-        print(f"Number of collections retrieved: {len(col)}")
         self.assertTrue(len(col) > 0)
 
     def test_search(self):
         items = self.crafter.search(**self.arguments)
-        # [print(item.properties["fileName"]) for item in items]
+        #[print(item.properties["fileName"]) for item in items]
         self.assertTrue(len(items) > 0)
 
     def test_download(self):
-        pass
+        # specify processing level to have the ability to create a datacube
+        self.arguments.update(processing_level='GRD_HD')
+        items = self.crafter.search(**self.arguments) 
+        self.crafter.download(items)
         
 if __name__ == '__main__':
     unittest.main()

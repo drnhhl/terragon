@@ -292,8 +292,6 @@ class ASF(VoxelCrafter):
         shp_4326_wkt = shp_4326.iloc[0]['geometry'].wkt
         processing_level = self.get_param("processing_level")
 
-        print("Processing level: ", processing_level)
-
         # TODO HOW CAN WE ALLOW FOR USE TO ASK FOR MORE SEARCH PARAMETERS WITHOUT LISTING ALL OFTHEM AS FUNCTION PARAMETERS
         items = asf.geo_search(
             platform=collection,
@@ -356,7 +354,7 @@ class ASF(VoxelCrafter):
 
         return ds
 
-    def download(self, items, create_minicube=True):
+    def download(self, items, create_minicube=False):
         assert len(items) > 0, "No images to download in items."
         
         ouput_dir = self.get_param('download_folder', raise_error=True)
@@ -364,7 +362,8 @@ class ASF(VoxelCrafter):
             os.makedirs(ouput_dir)
 
         asf_session = asf.ASFSession().auth_with_creds(self.credentials["username"], self.credentials["password"])
-        item_urls = [item["url"] for item in items]
+        item_urls = [item.properties["url"] for item in items]      
+        print(f"Downloading {len(item_urls)} items to {ouput_dir}")
         asf.download_urls(urls=item_urls, path=ouput_dir, session=asf_session, processes=self.get_param('num_workers', 1))
 
         filenames = glob(os.path.join(ouput_dir, "*.tif"))
@@ -373,4 +372,3 @@ class ASF(VoxelCrafter):
             return self.build_minicube(filenames)
         else:
             return filenames
-

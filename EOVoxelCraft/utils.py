@@ -1,10 +1,9 @@
-from joblib import Parallel, delayed
 import xarray as xr
 import pandas as pd
 import rioxarray as rxr
 import re
 
-def load_tif(filename, shp, resolution):
+def load_tif(filename, shp, resolution) -> xr.DataArray:
     date_pattern = r'\d{8}'
     da = rxr.open_rasterio(filename)
     if da.rio.crs != shp.crs:
