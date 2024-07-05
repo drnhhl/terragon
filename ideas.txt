@@ -1,2 +1,0 @@
-- using Pathlib for paths 
-- use dict for search parameter to be flexible with additional arguments 
