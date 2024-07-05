@@ -21,7 +21,9 @@ import asf_search as asf
 import hyp3_sdk as sdk
 from datetime import datetime
 from glob import glob
-from .utils import load_tif
+from .utils import stack_asf_bands, unzip_files, stack_cdse_bands
+from pathlib import Path
+from datetime import datetime, timedelta
 
 class VoxelCrafter(ABC):
     base_url = None
@@ -47,13 +49,13 @@ class VoxelCrafter(ABC):
         pass#
     
     # to much varibales in search, how to make it more flexible?
-    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None, processing_level:str=None):
+    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None, processing_level:str=None, num_workers:int=1):
         """Take all arguments and store them."""
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
             shp = gpd.GeoDataFrame(geometry=[shp.unary_union], crs=shp.crs)
         self._parameters.update({'shp': shp, 'collection': collection, 'bands': bands, 'start_date': start_date,
-                                'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder, "processing_level": processing_level})
+                                'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder, "processing_level": processing_level, 'num_workers': num_workers})
         
     @abstractmethod
     def download(self, items, create_minicube=True):
@@ -137,9 +139,7 @@ class PC(VoxelCrafter):
                 bands=self.get_param('bands'),
                 crs=crs,
                 x=(bounds[0], bounds[2]),
-                y=(bounds[1], bounds[3]),
-                resolution=self.get_param('resolution'),
-                dtype=self.get_param('dtype'),
+                y=(bounds[1], bounds[3])
             )
             return data
         else:
@@ -248,12 +248,131 @@ class GEE(VoxelCrafter):
                 print(f"Failed to remove file in download folder {fn}: {e}")
 
 class CDSE(VoxelCrafter):
-# https://documentation.dataspace.copernicus.eu/APIs/STAC.html
-    def __init__(self, credentials_path:str=None):
+    def __init__(self, credentials_path:str=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/"):
         super().__init__()
+        self.base_url = base_url
+        self.credentials = {}
+        if credentials_path:
+            self.set_credentials(credentials_path)
 
-        pass
+    def set_credentials(self, credentials_path:str):
+        with open(credentials_path, "r") as file:
+            self.credentials = json.load(file) # will store username and password
 
+    def retrieve_collections(self, filter_by_name: str=None):
+        collections_url = urljoin(self.base_url, "collections")
+        response = requests.get(collections_url)
+
+        if response.status_code == 200:
+            data = response.json()
+            collections = [collection['id'] for collection in data['collections']]
+            if filter_by_name:
+                collections = [collection for collection in collections if filter_by_name in collection]
+            return collections
+        else:
+            raise RuntimeError("Failed to retrieve collections")
+
+    def search(self, **kwargs):
+        super().search(**kwargs)
+        bounds_4326 = list(self.get_param('shp', raise_error=True).bounds.values[0])
+
+        catalog = pystac_client.Client.open(self.base_url)
+
+        start_date = datetime.strptime(self.get_param('start_date'), "%Y-%m-%d") if self.get_param('start_date') else datetime.now()
+        end_date = datetime.strptime(self.get_param('end_date'), "%Y-%m-%d") if self.get_param('end_date') else datetime.now() + timedelta(days=10)
+        time_interval =f"{start_date.isoformat()}Z/{end_date.isoformat()}Z" if start_date and end_date else None
+        
+        search = catalog.search(
+            collections=[self.get_param('collection', raise_error=True)],
+            bbox=bounds_4326,
+            datetime=time_interval
+        )
+
+        items = search.item_collection()
+        if len(items) == 0:
+            raise ValueError(f"No items found")
+        return items
+
+    def get_cdse_access_token(self):
+        data = {
+            "client_id": "cdse-public",
+            "username": self.credentials['username'],
+            "password": self.credentials['password'],
+            "grant_type": "password",
+            }
+        try:
+            r = requests.post("https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",data=data)
+            r.raise_for_status()
+        except Exception as e:
+            raise Exception(f"Access token creation failed. Reponse from the server was: {r.json()}")
+        return r.json()["access_token"]
+
+    def build_minicube(self, output_dir, res=None):
+        if len([file for file in output_dir.iterdir()]) < 1:
+            raise ValueError("No folders with data provided.")
+
+        gdf = self.get_param('shp')
+        num_workers = self.get_param('num_workers', 1)
+        res = self.get_param('resolution', 10)
+
+        img_folders = list(output_dir.glob(f"**/IMG_DATA/R{res}m"))
+        
+        # Create a list of delayed tasks
+        for img_folder in img_folders:
+            ds = stack_cdse_bands(img_folder, gdf, res)
+        
+        tasks = [delayed(stack_cdse_bands)(img_folder, gdf, res) for img_folder in img_folders]
+        datasets = Parallel(n_jobs=num_workers)(tasks)
+
+        # Concatenate datasets along the 'time' dimension and process the combined dataset
+        ds = xr.concat(datasets, dim='time').compute()
+        ds = ds.sortby('time')
+        return ds
+
+    def download_cdse_file(self, session, url, file_path):
+        response = session.get(url, stream=True)
+        block_size = 8192  # 8 Kilobytes
+        if response.status_code == 200:
+            with open(file_path, "wb") as file:
+                for chunk in response.iter_content(chunk_size=block_size):
+                    if chunk: 
+                        file.write(chunk)
+        else:
+            print(f"Failed to download file. Status code: {response.status_code}")
+            print(response.text)
+        print("Downloaded file: ", file_path)
+        return file_path
+
+    def download(self, items, create_minicube=True, delete_zip=True):
+
+        output_dir = Path(self.get_param('download_folder', raise_error=True)) / "S2"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        zip_url = "https://zipper.dataspace.copernicus.eu/odata/v1/"
+        
+        access_token = self.get_cdse_access_token()
+        headers = {"Authorization": f"Bearer {access_token}"}
+    
+        session = requests.Session()
+        session.headers.update(headers)
+        
+        tasks = []
+        for item in items:
+            id = item.id.split(".")[0]
+            output_file = output_dir / f"{id}.zip"
+            url_parts = item.assets["PRODUCT"].href.split("/")
+            product_url = f"{'/'.join(url_parts[-2:])}"
+            url = urljoin(zip_url, product_url)
+            tasks.append(delayed(self.download_cdse_file)(session, url, output_file))
+
+        print(f"Starting downloading of {len(tasks)} files...")
+        zip_files = Parallel(n_jobs=self.get_param('num_workers', 1))(tasks)
+        output_dir = unzip_files(zip_files, output_dir, delete_zip=delete_zip)
+
+        if create_minicube:
+            return self.build_minicube(output_dir)
+        else:
+            return [folder for folder in output_dir.iterdir() if folder.is_dir()]
+        
 class ASF(VoxelCrafter):
     def __init__(self, credentials_path:str=None):
         super().__init__()
@@ -292,7 +411,6 @@ class ASF(VoxelCrafter):
         shp_4326_wkt = shp_4326.iloc[0]['geometry'].wkt
         processing_level = self.get_param("processing_level")
 
-        # TODO HOW CAN WE ALLOW FOR USE TO ASK FOR MORE SEARCH PARAMETERS WITHOUT LISTING ALL OFTHEM AS FUNCTION PARAMETERS
         items = asf.geo_search(
             platform=collection,
             start=datetime.strptime(start_date, "%Y-%m-%d"),
@@ -335,40 +453,46 @@ class ASF(VoxelCrafter):
                 )
         return insar_jobs
 
-    def build_minicube(self, filenames):
-        if len(filenames) < 1:
-            raise ValueError("No files provided to merge.")
+    def build_minicube(self, img_folders):
+        if len(img_folders) < 1:
+            raise ValueError("No folders with data provided.")
 
         shp = self.get_param('shp')
         num_workers = self.get_param('num_workers', 1)
         resolution = self.get_param('resolution', 10)
         
-        out = Parallel(n_jobs=num_workers)(delayed(load_tif)(fn, shp, resolution) for fn in filenames)
+        # Create a list of delayed tasks
+        tasks = [delayed(stack_asf_bands)(img_folder, shp, resolution) for img_folder in img_folders]
+        datasets = Parallel(n_jobs=num_workers)(tasks)
 
-        ds = xr.concat(out, dim='time').compute()
+        # Concatenate datasets along the 'time' dimension and process the combined dataset
+        ds = xr.concat(datasets, dim='time').compute()
         ds = ds.sortby('time')
-        ds = ds.to_dataset(dim='band')
-        ds = ds.rename_vars({dim: name for dim, name in zip(ds.data_vars.keys(), ds.attrs['long_name'])})
-        if 'FILL_MASK' in ds.data_vars:
-            ds = ds.drop_vars('FILL_MASK')
-
         return ds
 
-    def download(self, items, create_minicube=False):
-        assert len(items) > 0, "No images to download in items."
-        
-        ouput_dir = self.get_param('download_folder', raise_error=True)
-        if not os.path.exists(ouput_dir):
-            os.makedirs(ouput_dir)
+    def start_rtc_job(items, rtc_specifications=None, job_name="rtc_jobs"):
+        pass
 
+    def download(self, items, create_minicube=True):
+        assert len(items) > 0, "No images to download in items."
+
+        if "username" not in self.credentials or "password" not in self.credentials:
+            raise ValueError("No credentials provided for ASF download.")
+        
+        output_dir = Path(self.get_param('download_folder', raise_error=True))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
         asf_session = asf.ASFSession().auth_with_creds(self.credentials["username"], self.credentials["password"])
         item_urls = [item.properties["url"] for item in items]      
-        print(f"Downloading {len(item_urls)} items to {ouput_dir}")
-        asf.download_urls(urls=item_urls, path=ouput_dir, session=asf_session, processes=self.get_param('num_workers', 1))
+        
+        print(f"Downloading {len(item_urls)} items to directory: {output_dir}")
+        asf.download_urls(urls=item_urls, path=str(output_dir), session=asf_session, processes=self.get_param('num_workers', 1))
 
-        filenames = glob(os.path.join(ouput_dir, "*.tif"))
+        zip_files = list(output_dir.glob("*.zip"))
+        output_dir = unzip_files(zip_files)
+        image_folders = list(output_dir.glob("**/measurement"))
 
         if create_minicube:
-            return self.build_minicube(filenames)
+            return self.build_minicube(image_folders)
         else:
-            return filenames
+            return image_folders
