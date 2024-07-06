@@ -20,10 +20,11 @@ import shutil
 import asf_search as asf
 import hyp3_sdk as sdk
 from datetime import datetime
-from glob import glob
-from .utils import stack_asf_bands, unzip_files, stack_cdse_bands
+from .utils import stack_asf_bands, unzip_files, stack_cdse_bands, preprocess_download_task
 from pathlib import Path
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 class VoxelCrafter(ABC):
     base_url = None
@@ -307,8 +308,11 @@ class CDSE(VoxelCrafter):
             raise Exception(f"Access token creation failed. Reponse from the server was: {r.json()}")
         return r.json()["access_token"]
 
-    def build_minicube(self, output_dir, res=None):
-        if len([file for file in output_dir.iterdir()]) < 1:
+    def build_minicube(self, output_dir):
+        if isinstance(output_dir, str):
+            output_dir = Path(output_dir)
+
+        if len([file for file in Path(output_dir).iterdir()]) < 1:
             raise ValueError("No folders with data provided.")
 
         gdf = self.get_param('shp')
@@ -327,45 +331,53 @@ class CDSE(VoxelCrafter):
         # Concatenate datasets along the 'time' dimension and process the combined dataset
         ds = xr.concat(datasets, dim='time').compute()
         ds = ds.sortby('time')
-        return ds
 
-    def download_cdse_file(self, session, url, file_path):
-        response = session.get(url, stream=True)
-        block_size = 8192  # 8 Kilobytes
-        if response.status_code == 200:
-            with open(file_path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=block_size):
-                    if chunk: 
-                        file.write(chunk)
-        else:
-            print(f"Failed to download file. Status code: {response.status_code}")
-            print(response.text)
-        print("Downloaded file: ", file_path)
+        gdf = gdf.to_crs(ds.rio.crs) if gdf.crs != ds.rio.crs else gdf
+        ds = ds.rio.pad_box(*gdf.total_bounds)
+
+        return ds
+    
+    def download_cdse_file(self, url, file_path):
+        access_token = self.get_cdse_access_token()
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        with requests.Session() as session:
+            session.headers.update(headers)
+            response = session.get(url, stream=True)
+            block_size = 8192  # 8 Kilobytes
+
+            if response.status_code == 200:
+                with open(file_path, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=block_size):
+                        if chunk:
+                            file.write(chunk)
+            else:
+                print(f"Failed to download file. Status code: {response.status_code}")
+                print(response.text)
         return file_path
 
     def download(self, items, create_minicube=True, delete_zip=True):
 
         output_dir = Path(self.get_param('download_folder', raise_error=True)) / "S2"
         output_dir.mkdir(parents=True, exist_ok=True)
-        zip_url = "https://zipper.dataspace.copernicus.eu/odata/v1/"
-        
-        access_token = self.get_cdse_access_token()
-        headers = {"Authorization": f"Bearer {access_token}"}
-    
-        session = requests.Session()
-        session.headers.update(headers)
-        
-        tasks = []
-        for item in items:
-            id = item.id.split(".")[0]
-            output_file = output_dir / f"{id}.zip"
-            url_parts = item.assets["PRODUCT"].href.split("/")
-            product_url = f"{'/'.join(url_parts[-2:])}"
-            url = urljoin(zip_url, product_url)
-            tasks.append(delayed(self.download_cdse_file)(session, url, output_file))
+                
+        tasks = preprocess_download_task(items, output_dir) 
 
-        print(f"Starting downloading of {len(tasks)} files...")
-        zip_files = Parallel(n_jobs=self.get_param('num_workers', 1))(tasks)
+        zip_files = []
+        with tqdm(total=len(tasks), desc="Downloading files") as pbar:
+            for i in range(0, len(tasks), 4):
+                batch = tasks[i:i+4]
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    futures = {executor.submit(self.download_cdse_file, *task): task for task in batch}
+                    for future in as_completed(futures):
+                        try:
+                            result = future.result()
+                            if result:
+                                zip_files.append(result)
+                            pbar.update(1)
+                        except Exception as e:
+                            print(f"Failed to download file with error: {e}")
+        
         output_dir = unzip_files(zip_files, output_dir, delete_zip=delete_zip)
 
         if create_minicube:

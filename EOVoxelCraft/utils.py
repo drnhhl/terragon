@@ -9,6 +9,19 @@ import geopandas as gpd
 import tempfile 
 import zipfile
 import shutil
+from urllib.parse import urljoin
+
+def preprocess_download_task(items, output_dir):
+    zip_url = "https://zipper.dataspace.copernicus.eu/odata/v1/"
+    tasks = []
+    for item in items:
+        id = item.id.split(".")[0]
+        output_file = output_dir / f"{id}.zip"
+        url_parts = item.assets["PRODUCT"].href.split("/")
+        product_url = f"{'/'.join(url_parts[-2:])}"
+        url = urljoin(zip_url, product_url)
+        tasks.append((url, output_file))
+    return tasks
 
 def stack_cdse_bands(img_folder:Path, shp:gpd.GeoDataFrame, resolution:int) -> xr.Dataset:
     data_arrays = []
