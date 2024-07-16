@@ -43,52 +43,12 @@ Optional with the dependency you want to use:
 pip install terragon-downloader[pc]
 ```
 ### Downloading EO data
-```python
-import terragon
-import geopandas as gpd
-from shapely.geometry import Polygon
-
-# example polygon
-gdf = gpd.GeoDataFrame(geometry=[Polygon(
-            [(446993, 3383569),
-            (446993, 3371569),
-            (434993, 3371569),
-            (434993, 3383569),
-            (446993, 3383569)])],
-            crs='EPSG:32616' # the dataset will receive the crs from the dataframe
-            )
-
-# initialize backend/data source (here planetary computer)
-tg = terragon.init('pc')
-
-# download data
-da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the same CRS)
-               collection="sentinel-2-l2a", # name of the collection
-               start_date="2021-01-01", # start date of tiles
-               end_date="2021-01-05", # end date of tiles
-               bands=["B02", "B03", "B04"], # bands to retrieve
-               resolution=20, # pixel size in meter
-               )
-```
-Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/docs/demo_files).
-
-## Limitations
-Be aware that depending on the collection the data is not mosaicked.
-
-## Limitations
-Be aware that depending on the collection the data is not mosaicked.
-
-## Limitations
-Be aware that depending on the collection the data is not mosaicked.
 
 ## Contribute
-You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
-
+A data source is missing? Or you found a bug? Please raise an issue or provide a PR.
 ## License
 This work is licensed under the MIT license.
-
 ## Citation
-If you use this work, please consider citing the following paper: Coming soon.
 
 ## Acknowledgement
-This work is inspired by [cubo](https://github.com/ESDS-Leipzig/cubo)
+This work is inspired by cubo: https://github.com/ESDS-Leipzig/cubo
