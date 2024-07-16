@@ -7,6 +7,10 @@ import EOVoxelCraft as eovc
 import geopandas as gpd
 from pathlib import Path
 
+class TestGEEInit(unittest.TestCase):
+    def test_not_initialized(self):
+        self.assertRaises(RuntimeError, eovc.init, 'gee')
+
 class TestGEE(unittest.TestCase):
     def setUp(self):
         dotenv.load_dotenv()
@@ -15,8 +19,6 @@ class TestGEE(unittest.TestCase):
         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
 
-    # def test_not_initialized(self): # TODO
-    #     self.assertRaises(RuntimeError, eovc.init, 'gee')
 
     def test_collections(self):
         self.assertRaises(NotImplementedError, self.crafter.retrieve_collections)
