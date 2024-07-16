@@ -1,22 +1,15 @@
-import geopandas as gpd
 import requests
-import pystac_client
-import odc.stac
-import json
-from abc import ABC, abstractmethod
 import os
-import hashlib
-import geedim
-from joblib import Parallel, delayed
+import shutil
 import xarray as xr
 import rioxarray as rxr
-import re
 import pandas as pd
-import shutil
+import geopandas as gpd
+
+from abc import ABC, abstractmethod
+from joblib import Parallel, delayed
 from pathlib import Path
 from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
 
 class VoxelCrafter(ABC):
     base_url = None
@@ -47,6 +40,8 @@ class VoxelCrafter(ABC):
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
             shp = gpd.GeoDataFrame(geometry=[shp.unary_union], crs=shp.crs)
+        if isinstance(download_folder, str):
+            download_folder = Path(download_folder)
         self._parameters.update({'shp': shp, 'collection': collection, 'bands': bands, 'start_date': start_date,
                                 'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder, "processing_level": processing_level, 'num_workers': num_workers})
         
@@ -62,7 +57,7 @@ class VoxelCrafter(ABC):
 
     def download_file(self, url, fn):
         """download a file from a url into fn."""
-        if os.path.exists(fn):
+        if fn.exists():
             return
         response = requests.get(url, stream=True)
         if response.status_code != 200:
@@ -71,8 +66,8 @@ class VoxelCrafter(ABC):
             with open(fn, 'wb') as f:
                 shutil.copyfileobj(response.raw, f)
         except Exception as e:
-            if os.path.exists(fn):
-                os.remove(fn)
+            if fn.exists():
+                fn.unlink()
             raise RuntimeError(f"Failed to download {url} with error {e}")
         finally:
             response.close()

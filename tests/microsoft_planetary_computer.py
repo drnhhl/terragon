@@ -3,12 +3,12 @@ import EOVoxelCraft as eovc
 import geopandas as gpd
 import os
 from pathlib import Path
-from test import BaseTest
 
-class TestPC(BaseTest, unittest.TestCase):
+class TestPC(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.crafter = eovc.init('pc')
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.arguments = dict(shp=self.gdf, collection='sentinel-2-l2a', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/download/')
 
     def test_collections(self):
@@ -29,8 +29,8 @@ class TestPC(BaseTest, unittest.TestCase):
         fns = self.crafter.download(items, create_minicube=False)
         self.assertTrue(len(fns) > 0)
         for fn in fns:
-            self.assertTrue(os.path.exists(fn))
-            os.remove(fn)
+            self.assertTrue(fn.exists())
+            fn.unlink()
 
     def test_create(self):
         self.crafter.create(**self.arguments)

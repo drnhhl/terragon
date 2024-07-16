@@ -4,6 +4,7 @@ import pystac_client
 import requests
 import planetary_computer as pc
 
+from pathlib import Path
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .crafter import VoxelCrafter
@@ -70,8 +71,8 @@ class PC(VoxelCrafter):
             bands = self.get_param('bands')
             if bands is None:
                 bands = items[0].assets.keys()
-            os.makedirs(self.get_param('download_folder', raise_error=True), exist_ok=True)
-            fns = [os.path.join(self.get_param('download_folder', raise_error=True), f"{self.get_param('collection', raise_error=True)}_{band}_{item.id}.tif") for item in items for band in bands]
+            self.get_param('download_folder', raise_error=True).mkdir(parents=True, exist_ok=True)
+            fns = [self.get_param('download_folder', raise_error=True).joinpath(f"{self.get_param('collection', raise_error=True)}_{band}_{item.id}.tif") for item in items for band in bands]
             urls = [item.assets[band].href for item in items for band in bands]
             Parallel(n_jobs=self.get_param('num_workers', 1))(delayed(self.download_file)(url, fn) for url, fn in zip(urls, fns))
             return fns
