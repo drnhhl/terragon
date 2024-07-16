@@ -1,7 +1,7 @@
 
 def init(api, credentials=None, **kwargs):
     if api == 'pc' or api == 'planetary_computer':
-        from .planetary_computer import PC
+        from .microsoft_planetary_computer import PC
         return PC(credentials, **kwargs)
     elif api == 'gee' or api == 'earthengine':
         from .google_earth_engine import GEE

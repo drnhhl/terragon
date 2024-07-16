@@ -8,6 +8,7 @@ import xarray as xr
 import rioxarray as rxr
 import pandas as pd
 
+from pathlib import Path
 from joblib import Parallel, delayed
 from .crafter import VoxelCrafter
 
@@ -47,8 +48,8 @@ class GEE(VoxelCrafter):
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
         img_col = img_col.toList(col_size)
-        tmp_dir = self.get_param('download_folder', '/tmp/eo_download/', raise_error=~create_minicube)
-        os.makedirs(tmp_dir, exist_ok=True)
+        tmp_dir = self.get_param('download_folder', Path('/tmp/eo_download/'), raise_error=~create_minicube)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
         # iterate and download tifs
         fns = []
         for i in range(col_size):
@@ -56,8 +57,8 @@ class GEE(VoxelCrafter):
             id_prop = next((prop for prop in img.propertyNames().getInfo() if 'PRODUCT_ID' in prop), None)
             img_id = img.get(id_prop).getInfo()
 
-            fileName = os.path.join(tmp_dir, f'{img_id}_{hashlib.sha256(self.get_param("shp", raise_error=True).geometry.iloc[0].wkt.encode("utf-8")).hexdigest()}.tif')
-            if not os.path.exists(fileName):
+            fileName = tmp_dir.joinpath(f'{img_id}_{hashlib.sha256(self.get_param("shp", raise_error=True).geometry.iloc[0].wkt.encode("utf-8")).hexdigest()}.tif')
+            if not fileName.exists():
                 img = geedim.MaskedImage(img)
                 img.download(fileName, crs=self.crs_epsg, scale=self.get_param('resolution'), region=self._region.geometry())
             fns.append(fileName)
@@ -78,7 +79,7 @@ class GEE(VoxelCrafter):
             if da.rio.crs != shp.crs:
                 da = da.rio.reproject(shp.crs, resolution=self.get_param('resolution', raise_error=True))
             da = da.rio.clip(shp.geometry)
-            time_str = re.findall(date_pattern, fn)[0]
+            time_str = re.findall(date_pattern, str(fn))[0]
             da = da.assign_coords(time=pd.to_datetime(time_str, format='%Y%m%d'))
             return da
 
@@ -99,6 +100,6 @@ class GEE(VoxelCrafter):
     def rm_temp_files(self, fns):
         for fn in fns:
             try:
-                os.remove(fn)
+                fn.unlink()
             except Exception as e:
                 print(f"Failed to remove file in download folder {fn}: {e}")

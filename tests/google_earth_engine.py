@@ -19,7 +19,6 @@ class TestGEE(unittest.TestCase):
         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
 
-
     def test_collections(self):
         self.assertRaises(NotImplementedError, self.crafter.retrieve_collections)
 
@@ -39,8 +38,8 @@ class TestGEE(unittest.TestCase):
         fns = self.crafter.download(items, create_minicube=False)
         self.assertTrue(len(fns) > 0)
         for fn in fns:
-            self.assertTrue(os.path.exists(fn))
-            os.remove(fn)
+            self.assertTrue(fn.exists())
+            fn.unlink()
 
     def test_create(self):
         self.crafter.create(**self.arguments)
