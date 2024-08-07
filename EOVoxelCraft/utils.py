@@ -85,3 +85,16 @@ def unzip_files(zip_files, output_dir:Path, delete_zip=True):
             if delete_zip:
                 zip_file.unlink()
     return output_dir
+
+def bbox_to_geojson_polygon(bbox):
+    min_lon, min_lat, max_lon, max_lat = bbox
+    return {
+        "type": "Polygon",
+        "coordinates": [[
+            [min_lon, min_lat],
+            [min_lon, max_lat],
+            [max_lon, max_lat],
+            [max_lon, min_lat],
+            [min_lon, min_lat]
+        ]]
+    }
