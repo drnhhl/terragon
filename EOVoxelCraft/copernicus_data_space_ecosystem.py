@@ -1,8 +1,13 @@
 import json
 import requests
+from pystac_client import Client
 from urllib.parse import urljoin
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta
+from pathlib import Path
+from joblib import Parallel, delayed
+import xarray as xr
 
+from .utils import stack_cdse_bands, preprocess_download_task, unzip_files
 from .crafter import VoxelCrafter
 
 class CDSE(VoxelCrafter):
@@ -34,7 +39,7 @@ class CDSE(VoxelCrafter):
         super().search(**kwargs)
         bounds_4326 = list(self.get_param('shp', raise_error=True).bounds.values[0])
 
-        catalog = pystac_client.Client.open(self.base_url)
+        catalog = Client.open(self.base_url)
 
         start_date = datetime.strptime(self.get_param('start_date'), "%Y-%m-%d") if self.get_param('start_date') else datetime.now()
         end_date = datetime.strptime(self.get_param('end_date'), "%Y-%m-%d") if self.get_param('end_date') else datetime.now() + timedelta(days=10)
@@ -115,25 +120,23 @@ class CDSE(VoxelCrafter):
 
     def download(self, items, create_minicube=True, delete_zip=True):
 
-        output_dir = Path(self.get_param('download_folder', raise_error=True)) / "S2"
+        output_dir = Path(self.get_param('download_folder', raise_error=True))
         output_dir.mkdir(parents=True, exist_ok=True)
                 
         tasks = preprocess_download_task(items, output_dir) 
 
         zip_files = []
-        with tqdm(total=len(tasks), desc="Downloading files") as pbar:
-            for i in range(0, len(tasks), 4):
-                batch = tasks[i:i+4]
-                with ThreadPoolExecutor(max_workers=4) as executor:
-                    futures = {executor.submit(self.download_cdse_file, *task): task for task in batch}
-                    for future in as_completed(futures):
-                        try:
-                            result = future.result()
-                            if result:
-                                zip_files.append(result)
-                            pbar.update(1)
-                        except Exception as e:
-                            print(f"Failed to download file with error: {e}")
+           
+        for i in range(0, len(tasks), 4):
+            batch = tasks[i:i+4] 
+            futures = Parallel(n_jobs=self.get_param('num_workers', 1))(delayed(self.download_cdse_file)(*task) for task in batch)
+            for future in futures:
+                try:
+                    result = future.result()
+                    if result:
+                        zip_files.append(result)
+                except Exception as e:
+                    print(f"Failed to download file with error: {e}")
         
         output_dir = unzip_files(zip_files, output_dir, delete_zip=delete_zip)
 

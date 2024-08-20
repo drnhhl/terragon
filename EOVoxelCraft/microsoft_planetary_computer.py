@@ -1,10 +1,8 @@
-import os
 import odc.stac
 import pystac_client
 import requests
 import planetary_computer as pc
 
-from pathlib import Path
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .crafter import VoxelCrafter
