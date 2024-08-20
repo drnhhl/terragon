@@ -87,7 +87,7 @@ def unzip_files(zip_files, output_dir:Path, delete_zip=True):
     return output_dir
 
 def bbox_to_geojson_polygon(bbox):
-    min_lon, min_lat, max_lon, max_lat = bbox
+    min_lon, min_lat, max_lon, max_lat = map(float, bbox)
     return {
         "type": "Polygon",
         "coordinates": [[

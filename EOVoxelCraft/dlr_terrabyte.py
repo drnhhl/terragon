@@ -1,27 +1,19 @@
-import json
-import shutil
-from pystac_client
-from pathlib import Path
+from pystac_client import Client 
 from odc import stac as odc_stac
-import rioxarray 
-import geopandas as gpd 
-from shapely.geometry import box
-import numpy as np
+from datetime import datetime 
 
 from .utils import bbox_to_geojson_polygon
-from pathlib import Path
-from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .crafter import VoxelCrafter
 
 class TB(VoxelCrafter):
-    def __init__(self, base_url:str="'https://stac.terrabyte.lrz.de/public/api'"):
+    def __init__(self, credentials:str=None, base_url:str="https://stac.terrabyte.lrz.de/public/api"):
         super().__init__()
         self.base_url = base_url
 
     def retrieve_collections(self, filter_by_name: str=None):
         try:
-            catalog = pystac_client.Client.open(self.base_url)
+            catalog = Client.open(self.base_url)
         except Exception as e:
             raise RuntimeError(f"Failed to open catalog: {e}")
 
@@ -36,10 +28,10 @@ class TB(VoxelCrafter):
     def search(self, **kwargs):
         super().search(**kwargs)
 
-        catalog = pystac_client.Client.open(self.base_url)
+        catalog = Client.open(self.base_url)
 
-        start_date = self.get_param('start_date') # '2016-01-01T00:00:00Z'
-        end_date = self.get_param('end_date')
+        start_date = datetime.strptime(self.get_param('start_date'), "%Y-%m-%d") # '2016-01-01T00:00:00Z'
+        end_date = datetime.strptime(self.get_param('end_date'), "%Y-%m-%d")
         bounds_4326 = self._reproject_shp(self.get_param('shp', raise_error=True)).total_bounds
         bounds_4326 = bbox_to_geojson_polygon(bounds_4326)
 
@@ -62,8 +54,9 @@ class TB(VoxelCrafter):
         crs = self.get_param('shp', raise_error=True).crs
 
         if create_minicube:
-            data = odc.stac.load(items,
+            data = odc_stac.load(items,
                 bands=self.get_param('bands'),
+                # resolution=self.get_param('resolution'),
                 crs=crs,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])
@@ -78,4 +71,3 @@ class TB(VoxelCrafter):
             urls = [item.assets[band].href for item in items for band in bands]
             Parallel(n_jobs=self.get_param('num_workers', 1))(delayed(self.download_file)(url, fn) for url, fn in zip(urls, fns))
             return fns
-

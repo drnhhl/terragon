@@ -8,5 +8,15 @@ setup(name='EOVoxelCraft',
       author='',
       author_email='',
       url='https://github.com/drnhhl/EOVoxelCraft',
-      packages=[''],
+      packages=[
+        #   'xarray',
+        #   'rioxarray',
+        #   'pandas'
+        #   'geopandas',
+        #   'zipfile',
+        #   'planetary-computer',
+        #   'geedim',
+        #   'asf_search', 
+        #   'hyp3_sdk'
+          ],
       )
