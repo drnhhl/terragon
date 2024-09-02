@@ -10,9 +10,9 @@ import pandas as pd
 
 from pathlib import Path
 from joblib import Parallel, delayed
-from .crafter import VoxelCrafter
+from .tg import Voxeltg
 
-class GEE(VoxelCrafter):
+class GEE(Voxeltg):
     def __init__(self, credentials=None):
         super().__init__()
         if not ee.data._credentials:

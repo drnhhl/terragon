@@ -4,9 +4,9 @@ from datetime import datetime
 
 from .utils import bbox_to_geojson_polygon
 from joblib import Parallel, delayed
-from .crafter import VoxelCrafter
+from .tg import Voxeltg
 
-class TB(VoxelCrafter):
+class TB(Voxeltg):
     def __init__(self, credentials:str=None, base_url:str="https://stac.terrabyte.lrz.de/public/api"):
         super().__init__()
         self.base_url = base_url
