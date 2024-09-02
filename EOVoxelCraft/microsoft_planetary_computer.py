@@ -6,6 +6,7 @@ import planetary_computer as pc
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .crafter import VoxelCrafter
+from.utils import resolve_resolution
 
 class PC(VoxelCrafter):
     def __init__(self, credentials:str=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
@@ -54,13 +55,16 @@ class PC(VoxelCrafter):
     def download(self, items=None, create_minicube=True):
         assert len(items) > 0, "No images to download."
         
-        bounds = list(self.get_param('shp', raise_error=True).bounds.values[0])
-        crs = self.get_param('shp', raise_error=True).crs
+        shp = self.get_param('shp', raise_error=True)
+        bounds = list(shp.bounds.values[0])
+        crs = shp.crs
+        res = resolve_resolution(self.get_param('resolution', raise_error=True))
 
         if create_minicube:
             data = odc.stac.load(items,
                 bands=self.get_param('bands'),
                 crs=crs,
+                resolution=res,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])
             )
