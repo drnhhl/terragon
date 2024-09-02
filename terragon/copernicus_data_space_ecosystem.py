@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 import xarray as xr
 import odc.stac
 
-from .utils import stack_cdse_bands, preprocess_download_task, unzip_files
+from .utils import build_minicube, preprocess_download_task, unzip_files
 from .tg import Voxeltg
 
 class CDSE(Voxeltg):
@@ -168,7 +168,7 @@ class CDSE(Voxeltg):
            
         for i in range(0, len(tasks), max_imgs_parallel):
             batch = tasks[i:i+4] 
-            results = Parallel(n_jobs=num_workers)(delayed(self.download_file)(*task) for task in batch)
+            results = Parallel(n_jobs=num_workers)(delayed(self._download_file)(*task) for task in batch)
             for result in results:
                 try:
                     if result:
@@ -179,7 +179,16 @@ class CDSE(Voxeltg):
         
         output_dir = unzip_files(zip_files, output_dir, delete_zip=delete_zip)
 
-        if create_minicube:
-            return self.build_minicube(output_dir)
+        bands = self.get_param('bands')
+        res = self.get_param('resolution')
+        shp = self.get_param('shp')
+        
+        if bands:
+            band_files = [img_path for img_path in output_dir.glob(f"**/IMG_DATA/*.jp2") if any(band.lower() in img_path.stem for band in bands)]
         else:
-            return [folder for folder in output_dir.iterdir() if folder.is_dir()]
+            band_files = list(output_dir.glob(f"**/IMG_DATA/*.jp2"))
+
+        if create_minicube:
+            return build_minicube(band_files, shp, res, num_workers=num_workers)
+        else:
+            return band_files
