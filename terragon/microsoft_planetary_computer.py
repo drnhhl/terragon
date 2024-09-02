@@ -5,10 +5,10 @@ import planetary_computer as pc
 
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
-from .tg import Voxeltg
+from .base import Base
 from.utils import resolve_resolution
 
-class PC(Voxeltg):
+class PC(Base):
     def __init__(self, credentials:str=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
         super().__init__()
         self.base_url = base_url

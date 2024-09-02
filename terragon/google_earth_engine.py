@@ -10,9 +10,9 @@ import pandas as pd
 
 from pathlib import Path
 from joblib import Parallel, delayed
-from .tg import Voxeltg
+from .base import Base
 
-class GEE(Voxeltg):
+class GEE(Base):
     def __init__(self, credentials=None):
         super().__init__()
         if not ee.data._credentials:
