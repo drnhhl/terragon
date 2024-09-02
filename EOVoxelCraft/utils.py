@@ -10,6 +10,31 @@ import tempfile
 import zipfile
 import shutil
 from urllib.parse import urljoin
+from datetime import datetime
+from pystac import ItemCollection
+
+def filter_unique_items(items, tile_id, product_type, max_cloud_cover=50):
+    def extract(item, key, default=None):
+        # Extracts values from properties or defaults if not found
+        return item.properties.get(key, default)
+
+    seen = {}
+    for item in items:
+        if extract(item, 's2:mgrs_tile') != tile_id:
+            continue  # Skip items that don't match the specified tileId
+
+        date = datetime.strptime(item.id.split('_')[2][:8], '%Y%m%d').date()
+        level, cloud_cover = extract(item, 's2:product_type'), extract(item, 'eo:cloud_cover', 100)
+        key = (date, tile_id)
+
+        if key not in seen or \
+           (level == product_type and extract(seen[key], 's2:product_type') != product_type) or \
+           (level == extract(seen[key], 's2:product_type') and cloud_cover < extract(seen[key], 'eo:cloud_cover', 100)):
+
+            if cloud_cover <= max_cloud_cover:
+                seen[key] = item
+
+    return ItemCollection(seen.values())
 
 def preprocess_download_task(items, output_dir):
     zip_url = "https://zipper.dataspace.copernicus.eu/odata/v1/"
@@ -23,24 +48,34 @@ def preprocess_download_task(items, output_dir):
         tasks.append((url, output_file))
     return tasks
 
-def stack_cdse_bands(img_folder:Path, shp:gpd.GeoDataFrame, resolution:int) -> xr.Dataset:
+def stack_cdse_bands(img_folder: Path, shp: gpd.GeoDataFrame, target_res: int) -> xr.Dataset:
+    """Stacks bands from an image folder, reprojects if necessary, and clips to the provided shapefile."""
     data_arrays = []
+
     for file in img_folder.glob('*.jp2'):
+        # Extract date and band name
         time = re.findall(r'\d{8}', str(file))[0]
         band_name = file.stem.split('_')[-2]
 
-        da = rxr.open_rasterio(file)        
+        # Open the raster and reproject if resolution is different from target
+        da = rxr.open_rasterio(file)
+        if da.rio.resolution()[0] != target_res:
+            da = da.rio.reproject(da.rio.crs, resolution=target_res)
+
+        # Align shp to raster CRS and clip raster to the shp geometry
         shp = shp.to_crs(da.rio.crs) if shp.crs != da.rio.crs else shp
-        da = da.rio.reproject(shp.crs, resolution=resolution)
         da = da.rio.clip(shp.geometry)
 
+        # Remove 'band' dimension if it's unnecessary
         if 'band' in da.dims and da.sizes['band'] == 1:
             da = da.squeeze('band', drop=True)
             da = xr.DataArray(da, dims=['y', 'x'], name=band_name)
             da = da.assign_coords(time=pd.to_datetime(time, format='%Y%m%d'))
             da = da.expand_dims('time')
             data_arrays.append(da)
-        
+
+    # Sort bands by name or other criteria before merging
+    data_arrays = sorted(data_arrays, key=lambda da: da.name)  # Example: sort by band name
     return xr.merge(data_arrays)
 
 def stack_asf_bands(img_folder:Path, shp:gpd.GeoDataFrame, resolution:int) -> xr.Dataset:

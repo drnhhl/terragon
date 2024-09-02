@@ -10,15 +10,14 @@ from .crafter import VoxelCrafter
 from .utils import stack_asf_bands, unzip_files, fix_winding_order
 
 class ASF(VoxelCrafter):
-    def __init__(self, credentials_path:str=None):
+    def __init__(self, credentials:dict=None):
         super().__init__()
         self.credentials = {}
-        if credentials_path:
-            self.set_credentials(credentials_path)
+        if credentials:
+            self.set_credentials(credentials)
 
-    def set_credentials(self, credentials_path:str):
-        with open(credentials_path, "r") as file:
-            self.credentials = json.load(file) # will store username and password
+    def set_credentials(self, credentials:dict):
+        self.credentials = credentials
     
     def retrieve_collections(self, filter_by_name:str=None):
         # Retrieve all collections from asf.PLATFORM that do not start with "_"
@@ -108,9 +107,6 @@ class ASF(VoxelCrafter):
         ds = xr.concat(datasets, dim='time').compute()
         ds = ds.sortby('time')
         return ds
-
-    def start_rtc_job(items, rtc_specifications=None, job_name="rtc_jobs"):
-        pass
 
     def download(self, items, create_minicube=True):
         assert len(items) > 0, "No images to download in items."

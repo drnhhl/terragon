@@ -47,7 +47,7 @@ class TB(VoxelCrafter):
             raise ValueError(f"No items found")
         return items
 
-    def download(self, items=None, create_minicube=True):
+    def download(self, items, create_minicube=True):
         assert len(items) > 0, "No images to download."
         
         bounds = list(self.get_param('shp', raise_error=True).bounds.values[0])
