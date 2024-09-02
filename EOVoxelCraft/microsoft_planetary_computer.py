@@ -22,7 +22,7 @@ class PC(VoxelCrafter):
             data = response.json()
             collections = [collection['id'] for collection in data['collections']]
             if filter_by_name:
-                collections = [collection for collection in collections if filter_by_name in collection]
+                collections = [collection for collection in collections if filter_by_name in collection.lower()]
             return collections
         else:
             raise RuntimeError("Failed to retrieve collections")

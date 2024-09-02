@@ -32,7 +32,7 @@ class VoxelCrafter(ABC):
 
     @abstractmethod
     def retrieve_collections(self, ):
-        pass#
+        pass
     
     # to much varibales in search, how to make it more flexible?
     def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None, processing_level:str=None, num_workers:int=1):
