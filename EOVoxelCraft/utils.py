@@ -12,6 +12,58 @@ import shutil
 from urllib.parse import urljoin
 from datetime import datetime
 from pystac import ItemCollection
+import math 
+
+def meters_to_degrees(meters, latitude):
+    """
+    Convert meters to geographic degrees at a given latitude based on the Earth's radius.
+    """
+    # Approximate kilometers per degree of latitude at the equator
+    km_per_degree_latitude = 111.32  # More precise value for kilometers per degree at the equator
+    km = meters / 1000  # Convert meters to kilometers
+    
+    # Adjust kilometers per degree based on the cosine of the latitude
+    radians_latitude = math.radians(latitude)
+    adjusted_km_per_degree = km_per_degree_latitude * math.cos(radians_latitude)
+    
+    # Calculate the degree change for the given number of kilometers
+    degrees = km / adjusted_km_per_degree
+    
+    return degrees
+
+def degrees_to_meters(degrees, latitude):
+    """
+    Convert geographic degrees to meters at a given latitude based on the Earth's radius.
+    """
+    # Approximate kilometers per degree of latitude at the equator
+    km_per_degree_latitude = 111.32
+    radians_latitude = math.radians(latitude)
+    adjusted_km_per_degree = km_per_degree_latitude * math.cos(radians_latitude)
+
+    # Calculate the kilometers for the given number of degrees
+    km = degrees * adjusted_km_per_degree
+    meters = km * 1000  # Convert kilometers to meters
+
+    return meters
+
+def resolve_resolution(shp, resolution):
+    """
+    Adjust resolution based on CRS and input unit (degrees or meters).
+    """
+    crs = shp.crs
+    bounds = shp.total_bounds
+    central_latitude = (bounds[1] + bounds[3]) / 2
+
+    if crs.is_geographic:
+        if isinstance(resolution, (int, float)) and resolution >= 1:  # Assuming resolution is in meters
+            return meters_to_degrees(resolution, central_latitude)
+        else:
+            return resolution  # Already in degrees
+    elif crs.is_projected:
+        if isinstance(resolution, (int, float)) and resolution < 1:  # Assuming resolution is in degrees
+            return degrees_to_meters(resolution, central_latitude)
+        else:
+            return resolution  # Already in meters
 
 def filter_unique_items(items, tile_id, product_type, max_cloud_cover=50):
     def extract(item, key, default=None):
