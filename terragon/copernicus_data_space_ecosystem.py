@@ -58,6 +58,8 @@ class CDSE(Base):
 
         items = search.item_collection()
 
+        # TODO how to filter items? Search is not really good at filtering out duplicates for example -> set more filter parameters in search dict?
+
         if len(items) == 0:
             raise ValueError(f"No items found")
 
@@ -101,7 +103,7 @@ class CDSE(Base):
 
         return ds
     
-    def download_file(self, url, file_path, block_size=32768, max_retries=3):
+    def _download_file(self, url, file_path, block_size=32768, max_retries=3):
         assert self.access_token, "No access token for download; please call set_access_token()."
 
         headers = {"Authorization": f"Bearer {self.access_token}"}
