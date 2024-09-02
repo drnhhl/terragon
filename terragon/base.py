@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 from pathlib import Path
 from datetime import datetime, timedelta
 
-class Voxeltg(ABC):
+class Base(ABC):
     base_url = None
     _parameters = {}
     
@@ -22,7 +22,24 @@ class Voxeltg(ABC):
     def create(self, **kwargs):
         """Execute search and download within one command."""
         items = self.search(**kwargs)
-        self.download(items)
+        return self.download(items)
+
+    def param(self, name, **kwargs):
+        """Return a standard parameter from the class with predefined settings."""
+        dic = {
+            'shp': self.get_param('shp', raise_error=True) if not kwargs else self.get_param('shp', **kwargs),
+            'collection': self.get_param('collection', raise_error=True) if not kwargs else self.get_param('collection', **kwargs),
+            'bands': self.get_param('bands', []) if not kwargs else self.get_param('bands', **kwargs),
+            'start_date': self.get_param('start_date', None) if not kwargs else self.get_param('start_date', **kwargs),
+            'end_date': self.get_param('end_date', None) if not kwargs else self.get_param('end_date', **kwargs),
+            'resolution': self.get_param('resolution', None) if not kwargs else self.get_param('resolution', **kwargs),
+            'download_folder': self.get_param('download_folder', Path('./eo_download/')) if not kwargs else self.get_param('download_folder', **kwargs),
+        }
+
+        if name in dic:
+            return dic[name]
+        else:
+            return self.get_param(name)
 
     def get_param(self, name, default=None, raise_error=False):
         """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""

@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 from .tg import Voxeltg
 from .utils import build_minicube, unzip_files, fix_winding_order
 
-class ASF(Voxeltg):
+class ASF(Base):
     def __init__(self, credentials:dict=None):
         super().__init__()
         self.credentials = {}

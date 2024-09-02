@@ -12,7 +12,7 @@ import odc.stac
 from .utils import build_minicube, preprocess_download_task, unzip_files
 from .tg import Voxeltg
 
-class CDSE(Voxeltg):
+class CDSE(Base):
     def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/"):
         super().__init__()
         self.base_url = base_url
