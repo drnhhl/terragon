@@ -7,7 +7,7 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 from .base import Base
-from .utils import stack_asf_bands, unzip_files, fix_winding_order
+from .utils import build_minicube, unzip_files, fix_winding_order
 
 class ASF(Base):
     def __init__(self, credentials:dict=None):

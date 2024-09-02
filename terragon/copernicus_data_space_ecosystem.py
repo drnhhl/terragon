@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 import xarray as xr
 import odc.stac
 
-from .utils import stack_cdse_bands, preprocess_download_task, unzip_files
+from .utils import build_minicube, preprocess_download_task, unzip_files
 from .base import Base
 
 class CDSE(Base):

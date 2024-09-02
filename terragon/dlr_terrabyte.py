@@ -56,7 +56,7 @@ class TB(Base):
         if create_minicube:
             data = odc_stac.load(items,
                 bands=self.get_param('bands'),
-                # resolution=self.get_param('resolution'),
+                resolution=self.get_param('resolution'),
                 crs=crs,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])
