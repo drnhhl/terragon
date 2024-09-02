@@ -1,14 +1,14 @@
 <div style="display: flex; align-items: center;">
-    <a href="https://github.com/drnhhl/EOVoxelCraft">
+    <a href="https://github.com/drnhhl/terragon">
         <img src="docs/_static/logo.png" style="width: 200px; margin-right: 10px;">
     </a>
-    <a style="margin-left: 20px;" href="https://github.com/drnhhl/EOVoxelCraft">
-        <h1>EOVoxelCraft</h1>
+    <a style="margin-left: 20px;" href="https://github.com/drnhhl/terragon">
+        <h1>Terragon</h1>
     </a>
 </div>
 
 <p align="center">
-    <em>Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
+    <em>Terragon - Earth (Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
 </p>
 <p align="center">
     <a href="https://opensource.org/licenses/MIT" target="_blank">
@@ -28,11 +28,11 @@ We currently support four different backend data sources:
 ### Installation
 Install the package via PyPi:
 ´´´python
-pip install EOVoxelCraft
+pip install terragon
 ´´´
 ### Downloading EO data
 ```python
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
 from shapely.geometry import Polygon
 
@@ -47,7 +47,7 @@ gdf = gpd.GeoDataFrame(geometry=[Polygon(
             )
 
 # initialize backend/data source (here planetary computer)
-crafter = eovc.init('pc')
+crafter = terragon.init('pc')
 
 # download data
 da = crafter.create(shp=gdf, # polygon in geopandas format (minicube will receive the same CRS)

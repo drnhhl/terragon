@@ -1,13 +1,13 @@
 import unittest
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
-from EOVoxelCraft.utils import fix_winding_order
+from terragon.utils import fix_winding_order
 import os
 from pathlib import Path
 
 class TestASF(unittest.TestCase):
     def setUp(self):
-        self.crafter = eovc.init('asf')
+        self.crafter = terragon.init('asf')
         self.crafter.set_credentials(credentials_path=r"credentials\asf_credentials.json")
         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.gdf['geometry'] = self.gdf['geometry']

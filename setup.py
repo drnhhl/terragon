@@ -7,7 +7,7 @@ setup(name='terragon',
       description='',
       author='',
       author_email='',
-      url='https://github.com/drnhhl/EOVoxelCraft',
+      url='https://github.com/drnhhl/terragon',
       packages=[
         #   'xarray',
         #   'rioxarray',

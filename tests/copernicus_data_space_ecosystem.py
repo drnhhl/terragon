@@ -1,12 +1,12 @@
 import unittest
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
 import os
 from pathlib import Path
 
 # class TestCDSE(unittest.TestCase):
 #     def setUp(self):
-#         self.crafter = eovc.init('cdse')
+#         self.crafter = terragon.init('cdse')
 #         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
 #         # self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
 
