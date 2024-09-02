@@ -2,7 +2,7 @@
 
 from setuptools import setup
 
-setup(name='terragon',
+setup(name='EOVoxelCraft',
       version='0.1',
       description='',
       author='',
