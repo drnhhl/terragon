@@ -58,7 +58,7 @@ class PC(VoxelCrafter):
         shp = self.get_param('shp', raise_error=True)
         bounds = list(shp.bounds.values[0])
         crs = shp.crs
-        res = resolve_resolution(self.get_param('resolution', raise_error=True))
+        res = resolve_resolution(shp, self.get_param('resolution', raise_error=True))
 
         if create_minicube:
             data = odc.stac.load(items,
