@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 from pathlib import Path
 from datetime import datetime, timedelta
 
-class VoxelCrafter(ABC):
+class Voxeltg(ABC):
     base_url = None
     _parameters = {}
     

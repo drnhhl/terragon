@@ -6,10 +6,10 @@ from pathlib import Path
 import xarray as xr 
 from joblib import Parallel, delayed
 
-from .crafter import VoxelCrafter
+from .tg import Voxeltg
 from .utils import stack_asf_bands, unzip_files, fix_winding_order
 
-class ASF(VoxelCrafter):
+class ASF(Voxeltg):
     def __init__(self, credentials:dict=None):
         super().__init__()
         self.credentials = {}

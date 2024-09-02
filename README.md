@@ -47,10 +47,10 @@ gdf = gpd.GeoDataFrame(geometry=[Polygon(
             )
 
 # initialize backend/data source (here planetary computer)
-crafter = terragon.init('pc')
+tg = terragon.init('pc')
 
 # download data
-da = crafter.create(shp=gdf, # polygon in geopandas format (minicube will receive the same CRS)
+da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the same CRS)
                     collection="sentinel-2-l2a", # name of the collection
                     start_date="2021-01-01", # start date of tiles
                     end_date="2021-01-05", # end date of tiles
