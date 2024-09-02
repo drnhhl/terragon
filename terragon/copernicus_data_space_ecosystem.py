@@ -10,7 +10,7 @@ import xarray as xr
 import odc.stac
 
 from .utils import build_minicube, preprocess_download_task, unzip_files
-from .tg import Voxeltg
+from .base import Base
 
 class CDSE(Base):
     def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/"):

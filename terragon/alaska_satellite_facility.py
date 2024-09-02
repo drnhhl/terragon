@@ -6,7 +6,7 @@ from pathlib import Path
 import xarray as xr 
 from joblib import Parallel, delayed
 
-from .tg import Voxeltg
+from .base import Base
 from .utils import build_minicube, unzip_files, fix_winding_order
 
 class ASF(Base):
