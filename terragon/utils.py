@@ -13,57 +13,80 @@ from urllib.parse import urljoin
 from datetime import datetime
 from pystac import ItemCollection
 import math 
+from joblib import Parallel, delayed
+import logging
+
+def read_and_process_band(file, gdf, target_resolution):
+    da = rxr.open_rasterio(file)
+    
+    if da.rio.crs != gdf.crs or da.rio.resolution()[0] != target_resolution:
+        da = da.rio.reproject(gdf.crs, resolution=target_resolution)
+    
+    da = da.rio.clip(gdf.geometry, gdf.crs)
+    
+    if 'band' in da.dims:
+        da = da.squeeze('band').drop_vars('band', errors='ignore')
+    
+    # Add time coordinate
+    time = pd.to_datetime(re.search(r'\d{8}', str(file)).group(), format='%Y%m%d')
+    # da.name = file.stem.split('_')[-2]
+    da = da.expand_dims('time').assign_coords(time=('time', [time]))
+    return da
+
+def build_minicube(band_files, gdf, resolution, num_workers=4):
+
+    datasets = Parallel(n_jobs=num_workers)(delayed(read_and_process_band)(file, gdf, resolution) for file in band_files)
+    
+    # Merge all datasets into a single xarray Dataset
+    if datasets:
+        ds = xr.concat(datasets, dim='time')
+        ds = ds.sortby('time')  
+    else:
+        ds = xr.Dataset()
+    
+    ds = ds.rio.pad_box(*gdf.total_bounds)
+
+    return ds
 
 def meters_to_degrees(meters, latitude):
-    """
-    Convert meters to geographic degrees at a given latitude based on the Earth's radius.
-    """
-    # Approximate kilometers per degree of latitude at the equator
-    km_per_degree_latitude = 111.32  # More precise value for kilometers per degree at the equator
-    km = meters / 1000  # Convert meters to kilometers
-    
-    # Adjust kilometers per degree based on the cosine of the latitude
-    radians_latitude = math.radians(latitude)
-    adjusted_km_per_degree = km_per_degree_latitude * math.cos(radians_latitude)
-    
-    # Calculate the degree change for the given number of kilometers
-    degrees = km / adjusted_km_per_degree
-    
-    return degrees
+    # Radius of the Earth at the equator in kilometers
+    earth_radius_km = 6378.137
+    # Convert latitude from degrees to radians
+    rad = math.radians(latitude)
+    # Calculate the number of kilometers per degree at this latitude
+    km_per_degree = math.cos(rad) * math.pi * earth_radius_km / 180
+    # Convert meters to kilometers and then to degrees
+    return meters / 1000 / km_per_degree
 
 def degrees_to_meters(degrees, latitude):
-    """
-    Convert geographic degrees to meters at a given latitude based on the Earth's radius.
-    """
-    # Approximate kilometers per degree of latitude at the equator
-    km_per_degree_latitude = 111.32
-    radians_latitude = math.radians(latitude)
-    adjusted_km_per_degree = km_per_degree_latitude * math.cos(radians_latitude)
-
-    # Calculate the kilometers for the given number of degrees
-    km = degrees * adjusted_km_per_degree
-    meters = km * 1000  # Convert kilometers to meters
-
-    return meters
+    # Radius of the Earth at the equator in kilometers
+    earth_radius_km = 6378.137
+    # Convert latitude from degrees to radians
+    rad = math.radians(latitude)
+    # Calculate the number of kilometers per degree at this latitude
+    km_per_degree = math.cos(rad) * math.pi * earth_radius_km / 180
+    # Convert degrees to kilometers and then to meters
+    return degrees * km_per_degree * 1000
 
 def resolve_resolution(shp, resolution):
-    """
-    Adjust resolution based on CRS and input unit (degrees or meters).
-    """
     crs = shp.crs
     bounds = shp.total_bounds
     central_latitude = (bounds[1] + bounds[3]) / 2
 
     if crs.is_geographic:
-        if isinstance(resolution, (int, float)) and resolution >= 1:  # Assuming resolution is in meters
-            return meters_to_degrees(resolution, central_latitude)
+        if resolution < 1:  # Typically degrees would be a small decimal for geographic CRS
+            logging.info("Resolution is assumed to be in degrees.")
+            return resolution
         else:
-            return resolution  # Already in degrees
-    elif crs.is_projected:
-        if isinstance(resolution, (int, float)) and resolution < 1:  # Assuming resolution is in degrees
+            logging.info("Resolution assumed to be in meters, converting to degrees.")
+            return meters_to_degrees(resolution, central_latitude)
+    else:  # For projected CRS, assume large numbers are meters
+        if resolution < 1:  # Smaller numbers in a projected CRS are likely an error or misinterpretation
+            logging.info("Resolution given in degrees unexpectedly in a projected CRS, converting to meters.")
             return degrees_to_meters(resolution, central_latitude)
         else:
-            return resolution  # Already in meters
+            logging.info("Resolution is assumed to be in meters.")
+            return resolution
 
 def filter_unique_items(items, tile_id, product_type, max_cloud_cover=50):
     def extract(item, key, default=None):
