@@ -3,19 +3,19 @@ import unittest
 import os
 import ee
 import dotenv
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
 from pathlib import Path
 
 class TestGEEInit(unittest.TestCase):
     def test_not_initialized(self):
-        self.assertRaises(RuntimeError, eovc.init, 'gee')
+        self.assertRaises(RuntimeError, terragon.init, 'gee')
 
 class TestGEE(unittest.TestCase):
     def setUp(self):
         dotenv.load_dotenv()
         ee.Initialize(project=os.getenv('gee_project_name'))
-        self.crafter = eovc.init('gee')
+        self.crafter = terragon.init('gee')
         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
 

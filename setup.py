@@ -2,12 +2,12 @@
 
 from setuptools import setup
 
-setup(name='EOVoxelCraft',
+setup(name='terragon',
       version='0.1',
       description='',
       author='',
       author_email='',
-      url='https://github.com/drnhhl/EOVoxelCraft',
+      url='https://github.com/drnhhl/terragon',
       packages=[
         #   'xarray',
         #   'rioxarray',

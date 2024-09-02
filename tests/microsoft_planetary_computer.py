@@ -1,5 +1,5 @@
 import unittest
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
 import os
 from pathlib import Path
@@ -7,7 +7,7 @@ from pathlib import Path
 class TestPC(unittest.TestCase):
     def setUp(self):
         super().setUp()
-        self.crafter = eovc.init('pc')
+        self.crafter = terragon.init('pc')
         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
         self.arguments = dict(shp=self.gdf, collection='sentinel-2-l2a', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/download/')
 

@@ -1,12 +1,12 @@
 import unittest
-import EOVoxelCraft as eovc
+import terragon
 import geopandas as gpd
-from EOVoxelCraft.utils import fix_winding_order
+from terragon.utils import fix_winding_order
 import os
 
 # class GeneralTest(unittest.TestCase):
 #     def setUp(self):
-#         self.crafter = eovc.init('pc')
+#         self.crafter = terragon.init('pc')
 #         self.gdf = gpd.read_file(r"demo_files\TUM_OTN.shp")
 #         self.gdf["geometry"] = self.gdf["geometry"].apply(fix_winding_order)
 #         self.arguments = dict(shp=self.gdf, collection='sentinel-2-l2a', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/download/')
@@ -17,7 +17,7 @@ import os
 
 # class TestPC(unittest.TestCase):
 #     def setUp(self):
-#         self.crafter = eovc.init('pc')
+#         self.crafter = terragon.init('pc')
 #         self.gdf = gpd.read_file(r"demo_files\TUM_OTN.shp")
 #         self.gdf["geometry"] = self.gdf["geometry"].apply(fix_winding_order)
 #         self.arguments = dict(shp=self.gdf, collection='sentinel-2-l2a', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/download/')
@@ -48,7 +48,7 @@ import os
         
 # class TestGEE(unittest.TestCase):
 #     def setUp(self):
-#         self.crafter = eovc.init('gee')
+#         self.crafter = terragon.init('gee')
 #         self.gdf = gpd.read_file(r"demo_files\TUM_OTN.shp")
 #         self.gdf['geometry'] = self.gdf['geometry'].apply(fix_winding_order)
 #         self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
@@ -80,7 +80,7 @@ import os
 
 class TestASF(unittest.TestCase):
     def setUp(self):
-        self.crafter = eovc.init('asf')
+        self.crafter = terragon.init('asf')
         self.crafter.set_credentials(credentials_path=r"credentials\asf_credentials.json")
         self.gdf = gpd.read_file(r"demo_files\data\TUM_OTN.shp")
         self.gdf['geometry'] = self.gdf['geometry'].apply(fix_winding_order)
