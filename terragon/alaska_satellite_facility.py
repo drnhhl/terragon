@@ -7,7 +7,7 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 from .tg import Voxeltg
-from .utils import stack_asf_bands, unzip_files, fix_winding_order
+from .utils import build_minicube, unzip_files, fix_winding_order
 
 class ASF(Voxeltg):
     def __init__(self, credentials:dict=None):
@@ -60,7 +60,7 @@ class ASF(Voxeltg):
             raise ValueError(f"No items found")
         return items   
 
-    def start_rtc_jobs(self, items, rtc_specifications=None, job_name="rtc_jobs"):
+    def _start_rtc_jobs(self, items, rtc_specifications=None, job_name="rtc_jobs"):
         granule_ids = [item.properties["sceneName"] for item in items]
         # Prepare default parameters and update with rtc_specifications if provided
         default_params = {"name": job_name}
@@ -74,7 +74,7 @@ class ASF(Voxeltg):
 
         return rtc_jobs
 
-    def start_insar_jobs(self, insar_specifications=None, job_name="insar_jobs"):
+    def _start_insar_jobs(self, insar_specifications=None, job_name="insar_jobs"):
         # Prepare default parameters and update with rtc_specifications if provided
         default_params = {"name": job_name}
         if insar_specifications:
@@ -90,23 +90,6 @@ class ASF(Voxeltg):
                     granule_id, secondary.properties["sceneName"], **default_params
                 )
         return insar_jobs
-
-    def build_minicube(self, img_folders):
-        if len(img_folders) < 1:
-            raise ValueError("No folders with data provided.")
-
-        shp = self.get_param('shp')
-        num_workers = self.get_param('num_workers', 1)
-        resolution = self.get_param('resolution', 10)
-        
-        # Create a list of delayed tasks
-        tasks = [delayed(stack_asf_bands)(img_folder, shp, resolution) for img_folder in img_folders]
-        datasets = Parallel(n_jobs=num_workers)(tasks)
-
-        # Concatenate datasets along the 'time' dimension and process the combined dataset
-        ds = xr.concat(datasets, dim='time').compute()
-        ds = ds.sortby('time')
-        return ds
 
     def download(self, items, create_minicube=True):
         assert len(items) > 0, "No images to download in items."
@@ -125,9 +108,19 @@ class ASF(Voxeltg):
 
         zip_files = list(output_dir.glob("*.zip"))
         output_dir = unzip_files(zip_files)
-        image_folders = list(output_dir.glob("**/measurement"))
+
+        bands = self.get_param('bands')
+        res = self.get_param('resolution')
+        shp = self.get_param('shp')
+        num_workers = self.get_param('num_workers', 4)
+
+        if bands:
+            band_files = [img_path for img_path in output_dir.glob("**/measurement/*.tiff") if any(band.lower() in img_path.stem for band in bands)]
+        else:
+            band_files = list(output_dir.glob("**/measurement/*.tiff"))
 
         if create_minicube:
-            return self.build_minicube(image_folders)
+            return build_minicube(band_files, shp, res, num_workers)
         else:
-            return image_folders
+            
+            return band_files
