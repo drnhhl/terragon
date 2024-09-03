@@ -1,6 +1,8 @@
 <p align="center">
     <a href="https://github.com/drnhhl/terragon"><img src="docs/_static/logo.png" style="width: 200px" ></a>
-   <h1 align="center">Terragon</h1>
+</p>
+<h1 align="center">Terragon</h1>
+<p align="center">
     <em>Terragon - Earth(Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
 </p>
 <p align="center">
