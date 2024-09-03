@@ -77,6 +77,7 @@ class GEE(Base):
         if remove_tmp:
             rm_files(fns)
 
+        ds = self.prepare_cube(ds)
         return ds
 
     def merge_gee_tifs(self, fns):
