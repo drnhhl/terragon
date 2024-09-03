@@ -68,6 +68,7 @@ class PC(Base):
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])
             )
+            ds = self.prepare_cube(ds)
             return ds
         else:
             bands = self.param('bands')
