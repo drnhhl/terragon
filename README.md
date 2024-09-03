@@ -1,20 +1,5 @@
-<!-- define style to remove borders in tables -->
-<style>
-td, th {
-   border: none!important;
-}
-</style>
-
-<div align="center">
-<table>
-  <tr>
-    <td><a href="https://github.com/drnhhl/terragon"><img src="docs/_static/logo.png" style="width: 200px; margin-right: 10px;" ></a></td>
-    <td style="vertical-align: top; padding-top:15px; padding-left: 10px;"><a style="margin-left: 20px;" href="https://github.com/drnhhl/terragon">
-        <span style="font-size:8em;">Terragon</span>
-    </a></td>
-  </tr>
-</table>
-</div>
+<a href="https://github.com/drnhhl/terragon"><img src="docs/_static/logo.png" style="width: 200px; margin-right: 10px;" ></a>
+<span style="font-size:8em;">Terragon</span>
 
 <p align="center">
     <em>Terragon - Earth(Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
