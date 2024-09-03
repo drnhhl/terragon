@@ -44,6 +44,16 @@ class TestGEE(unittest.TestCase):
     def test_create(self):
         self.tg.create(**self.arguments)
 
+    def test_create_xee(self):
+        # TODO: gets a lot of time steps for whatever reason
+        # TODO get different amount of pixels
+        self.tg = terragon.init('gee', engine='xee')
+        # ds = self.tg.create(**self.arguments)
+        # print(ds)
+        # try utm crs: EPSG:32632
+        self.arguments['shp'] = self.arguments['shp'].to_crs('EPSG:32632')
+        ds = self.tg.create(**self.arguments)
+        print(ds.time)
 
 if __name__ == '__main__':
     unittest.main()
