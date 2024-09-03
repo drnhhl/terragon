@@ -1,8 +1,8 @@
 from pystac_client import Client 
-from odc import stac as odc_stac
+import odc.stac
 from datetime import datetime 
 
-from .utils import bbox_to_geojson_polygon
+from .utils import bbox_to_geojson_polygon, resolve_resolution
 from joblib import Parallel, delayed
 from .base import Base
 
@@ -19,9 +19,10 @@ class TB(Base):
 
         collections = catalog.get_all_collections()
         if collections:
-            for collection in collections:
-                if filter_by_name is None or filter_by_name in collection.id:
-                    print(collection.id)
+            collections = [col.id for col in collections]
+            if filter_by_name:
+                collections = [collection for collection in collections if filter_by_name in collection.lower()]
+            return collections
         else:
             raise RuntimeError("Failed to retrieve collections")
 
@@ -42,7 +43,7 @@ class TB(Base):
             # query=self.get_param('filter'), # {'eo:cloud_cover': {"gte": 0, "lte": 60},'grid:code': {'eq': 'MGRS-32UPU'}}
         )
 
-        items = list(search.items())
+        items = search.item_collection()
         if len(items) == 0:
             raise ValueError(f"No items found")
         return items
@@ -50,13 +51,15 @@ class TB(Base):
     def download(self, items, create_minicube=True):
         assert len(items) > 0, "No images to download."
         
-        bounds = list(self.get_param('shp', raise_error=True).bounds.values[0])
-        crs = self.get_param('shp', raise_error=True).crs
+        shp = self.get_param('shp', raise_error=True)
+        bounds = list(shp.bounds.values[0])
+        crs = shp.crs
+        res = resolve_resolution(shp, self.get_param('resolution', raise_error=True))
 
         if create_minicube:
-            data = odc_stac.load(items,
+            data = odc.stac.load(items,
                 bands=self.get_param('bands'),
-                resolution=self.get_param('resolution'),
+                resolution=res,
                 crs=crs,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])

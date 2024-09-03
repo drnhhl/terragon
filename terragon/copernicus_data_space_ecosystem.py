@@ -18,11 +18,17 @@ class CDSE(Base):
         self.base_url = base_url
         self.credentials = credentials
         if credentials:
+            self.credentials = credentials
             self.access_token = self.get_access_token()
+        else:
+            self.credentials = {}
+            self.access_token = None
 
-    def set_access_token(self, credentials):
-        self.credentials = credentials
+    def refresh_access_token(self):
+        if not self.credentials:
+            raise ValueError("No credentials provided to refresh the access token.")
         self.access_token = self.get_access_token()
+        print("Access token refreshed.")
 
     def retrieve_collections(self, filter_by_name: str=None):
         collections_url = urljoin(self.base_url, "collections")
@@ -66,6 +72,9 @@ class CDSE(Base):
         return items
 
     def get_access_token(self):
+        if not self.credentials:
+            raise ValueError("No credentials provided to refresh the access token.")
+        
         data = {
             "client_id": "cdse-public",
             "username": self.credentials['username'],
@@ -79,66 +88,31 @@ class CDSE(Base):
             raise Exception(f"Access token creation failed. Reponse from the server was: {r.json()}")
         return r.json()["access_token"]
 
-    def build_minicube(self, output_dir:Path):
-        
-        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
-
-        if not any(output_dir.iterdir()):
-            raise ValueError("No folders with data provided.")
-
-        gdf = self.get_param('shp')
-        res = self.get_param('resolution', 10)
-
-        img_folders = list(output_dir.glob(f"**/IMG_DATA/R{res}m"))
-        
-        tasks = [delayed(stack_cdse_bands)(img_folder, gdf, res) for img_folder in img_folders]
-        datasets = Parallel(n_jobs=self.get_param('num_workers', 1))(tasks)
-
-        # Concatenate datasets along the 'time' dimension and process the combined dataset
-        ds = xr.concat(datasets, dim='time').compute()
-        ds = ds.sortby('time')
-
-        gdf = gdf.to_crs(ds.rio.crs) if gdf.crs != ds.rio.crs else gdf
-        ds = ds.rio.pad_box(*gdf.total_bounds)
-
-        return ds
-    
-    def _download_file(self, url, file_path, block_size=32768, max_retries=3):
-        assert self.access_token, "No access token for download; please call set_access_token()."
-
+    def _download_file(self, url, file_path, block_size=32768):
+        """
+        Download a file from a given URL, handle token expiration explicitly without retrying.
+        """
+        assert self.access_token, "No access token for download; please set access token."
         headers = {"Authorization": f"Bearer {self.access_token}"}
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            with requests.Session() as session:
-                session.headers.update(headers)
-                response = session.get(url, stream=True)
 
-                # Handle token expiration by checking for a 401 response
-                if response.status_code == 401 and "Expired signature" in response.text:
-                    print("Access token expired. Refreshing token and retrying...")
-                    self.access_token = self.get_access_token()  # Refresh token
-                    headers["Authorization"] = f"Bearer {self.access_token}"
-                    retry_count += 1
-                    continue  # Retry the request with new token
+        with requests.Session() as session:
+            session.headers.update(headers)
+            response = session.get(url, stream=True)
 
-                # Handle successful response
-                if response.status_code == 200:
-                    with open(file_path, "wb") as file:
-                        for chunk in response.iter_content(chunk_size=block_size):
-                            if chunk:
-                                file.write(chunk)
-                    return file_path  # Return path if successful
+            if response.status_code == 401 and "Expired signature" in response.text:
+                print("Access token expired. Please refresh the token and try again.")
+                return None
 
-                # Handle other HTTP errors
-                else:
-                    print(f"Failed to download file. Status code: {response.status_code}")
-                    print(response.text)
-                    return None
-        
-        # If maximum retries are exceeded
-        print(f"Failed to download after {max_retries} attempts due to repeated authorization errors.")
-        return None
+            if response.status_code == 200:
+                with open(file_path, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=block_size):
+                        if chunk:
+                            file.write(chunk)
+                return file_path
+            else:
+                print(f"Failed to download file. Status code: {response.status_code}")
+                print(response.text)
+                return None
     
     def download_data_from_stac(self, items):
 
