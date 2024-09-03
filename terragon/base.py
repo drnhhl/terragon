@@ -34,6 +34,7 @@ class Base(ABC):
             'end_date': self.get_param('end_date', None) if not kwargs else self.get_param('end_date', **kwargs),
             'resolution': self.get_param('resolution', None) if not kwargs else self.get_param('resolution', **kwargs),
             'download_folder': self.get_param('download_folder', Path('./eo_download/')) if not kwargs else self.get_param('download_folder', **kwargs),
+            'num_workers': self.get_param('num_workers', 1) if not kwargs else self.get_param('num_workers', **kwargs),
         }
 
         if name in dic:
