@@ -208,3 +208,11 @@ def bbox_to_geojson_polygon(bbox):
             [min_lon, min_lat]
         ]]
     }
+
+def rm_files(fns):
+    for fn in fns:
+        if fn.exists():
+            try:
+                fn.unlink()
+            except Exception as e:
+                print(f"Failed to remove file in download folder {fn}: {e}")
