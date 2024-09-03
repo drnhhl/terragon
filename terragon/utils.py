@@ -75,17 +75,17 @@ def resolve_resolution(shp, resolution):
 
     if crs.is_geographic:
         if resolution < 1:  # Typically degrees would be a small decimal for geographic CRS
-            logging.info("Resolution is assumed to be in degrees.")
+            print("Resolution is assumed to be in degrees.")
             return resolution
         else:
-            logging.info("Resolution assumed to be in meters, converting to degrees.")
+            print("Resolution assumed to be in meters, converting to degrees.")
             return meters_to_degrees(resolution, central_latitude)
     else:  # For projected CRS, assume large numbers are meters
         if resolution < 1:  # Smaller numbers in a projected CRS are likely an error or misinterpretation
-            logging.info("Resolution given in degrees unexpectedly in a projected CRS, converting to meters.")
+            print("Resolution given in degrees unexpectedly in a projected CRS, converting to meters.")
             return degrees_to_meters(resolution, central_latitude)
         else:
-            logging.info("Resolution is assumed to be in meters.")
+            print("Resolution is assumed to be in meters.")
             return resolution
 
 def filter_unique_items(items, tile_id, product_type, max_cloud_cover=50):
