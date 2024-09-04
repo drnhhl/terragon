@@ -1,14 +1,9 @@
-<div style="display: flex; align-items: center;">
-    <a href="https://github.com/drnhhl/terragon">
-        <img src="docs/_static/logo.png" style="width: 200px; margin-right: 10px;">
-    </a>
-    <a style="margin-left: 20px;" href="https://github.com/drnhhl/terragon">
-        <h1>Terragon</h1>
-    </a>
-</div>
-
 <p align="center">
-    <em>Terragon - Earth (Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
+    <a href="https://github.com/drnhhl/terragon"><img src="docs/_static/logo.png" style="width: 200px" ></a>
+</p>
+<h1 align="center">Terragon</h1>
+<p align="center">
+    <em>Terragon - Earth(Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
 </p>
 <p align="center">
     <a href="https://opensource.org/licenses/MIT" target="_blank">

@@ -34,6 +34,7 @@ class Base(ABC):
             'end_date': self.get_param('end_date', None) if not kwargs else self.get_param('end_date', **kwargs),
             'resolution': self.get_param('resolution', None) if not kwargs else self.get_param('resolution', **kwargs),
             'download_folder': self.get_param('download_folder', Path('./eo_download/')) if not kwargs else self.get_param('download_folder', **kwargs),
+            'num_workers': self.get_param('num_workers', 1) if not kwargs else self.get_param('num_workers', **kwargs),
         }
 
         if name in dic:
@@ -71,6 +72,33 @@ class Base(ABC):
         if shp.crs != epsg:
             shp = shp.to_crs(epsg)
         return shp
+
+    def prepare_cube(self, ds):
+        """rename, reorder, and remove/add attributes to the dataset."""
+        # delete the attrs
+        ds.attrs = {}
+        for var in ds:
+            ds[var].attrs = {}
+
+        # rename dimensions and reorder
+        if 'latitude' in ds.dims:
+            ds = ds.rename({'latitude': 'y', 'longitude': 'x'})
+        if 'lat' in ds.dims:
+            ds = ds.rename({'lat': 'y', 'lon': 'x'})
+        if 'X' in ds.dims:
+            ds = ds.rename({'X': 'x', 'Y': 'y'})
+        
+        if 'time' in ds.dims:
+            ds = ds.transpose('time', 'y', 'x')
+        else:
+            ds = ds.transpose('y', 'x')
+
+        # add attributes
+        ds.attrs = {'crs': ds.rio.crs.to_string(),
+                    'data_source': self.__class__.__name__,
+                    'collection': self.param('collection')}
+
+        return ds
 
     def download_file(self, url, fn):
         """download a file from a url into fn."""
