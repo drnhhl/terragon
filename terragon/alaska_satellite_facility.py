@@ -114,13 +114,9 @@ class ASF(Base):
         shp = self.get_param('shp')
         num_workers = self.get_param('num_workers', 4)
 
-        if bands:
-            band_files = [img_path for img_path in output_dir.glob("**/measurement/*.tiff") if any(band.lower() in img_path.stem for band in bands)]
-        else:
-            band_files = list(output_dir.glob("**/measurement/*.tiff"))
 
         if create_minicube:
-            return build_minicube(band_files, shp, res, num_workers)
+            return build_minicube(output_dir, bands, shp, res, num_workers)
         else:
             
-            return band_files
+            return list(output_dir.glob(f"**/IMG_DATA/**/*.jp2"))

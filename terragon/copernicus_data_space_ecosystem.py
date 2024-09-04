@@ -9,7 +9,7 @@ from joblib import Parallel, delayed
 import xarray as xr
 import odc.stac
 
-from .utils import build_minicube, preprocess_download_task, unzip_files
+from .utils import build_minicube, preprocess_download_task, unzip_files, resolve_resolution
 from .base import Base
 
 class CDSE(Base):
@@ -116,15 +116,16 @@ class CDSE(Base):
     
     def download_data_from_stac(self, items):
 
-        bounds = list(self.get_param('shp', raise_error=True).bounds.values[0])
-        crs = self.get_param('shp', raise_error=True).crs
-        resolution = self.get_param('resolution', raise_error=True)
-
+        shp = self.get_param('shp', raise_error=True)
+        bounds = list(shp.bounds.values[0])
+        crs = shp.crs
+        res = resolve_resolution(shp, self.get_param('resolution', raise_error=True))
+        
         # Load data using odc-stac with the authenticated session
         data = odc.stac.load(
             items,
             crs=crs,
-            resolution=resolution,
+            resolution=res,
             x=(bounds[0], bounds[2]),
             y=(bounds[1], bounds[3])
         )
@@ -159,12 +160,10 @@ class CDSE(Base):
         res = self.get_param('resolution')
         shp = self.get_param('shp')
         
-        if bands:
-            band_files = [img_path for img_path in output_dir.glob(f"**/IMG_DATA/*.jp2") if any(band.lower() in img_path.stem for band in bands)]
-        else:
-            band_files = list(output_dir.glob(f"**/IMG_DATA/*.jp2"))
-
         if create_minicube:
-            return build_minicube(band_files, shp, res, num_workers=num_workers)
+            return build_minicube(output_dir, bands, shp, res, num_workers=num_workers)
         else:
-            return band_files
+            if bands:
+                return [img_path for img_path in output_dir.glob(f"**/IMG_DATA/**/*.jp2") if any(band in img_path.stem for band in bands)]
+            else:
+                return list(output_dir.glob(f"**/IMG_DATA/**/*.jp2"))

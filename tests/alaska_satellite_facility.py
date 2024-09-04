@@ -1,7 +1,7 @@
 import unittest
 import terragon
 import geopandas as gpd
-from terragon.utils import fix_winding_order
+import shutil
 import os
 from pathlib import Path
 
@@ -31,11 +31,11 @@ class TestASF(unittest.TestCase):
 
     def test_download_zips(self):
         items = self.tg.search(**self.arguments)
-        folders = self.tg.download(items, create_minicube=False)
-        self.assertTrue(len(folders) > 0)
-        for folder in folders:
-            self.assertTrue(os.path.exists(folder))
-            os.remove(folder)
+        fns = self.tg.download(items, create_minicube=False)
+        self.assertTrue(len(fns) > 0)
+        for fn in fns:
+            self.assertTrue(Path(fn).exists())
+        shutil.rmtree(self.arguments["download_folder"])
 
 if __name__ == '__main__':
     unittest.main()
