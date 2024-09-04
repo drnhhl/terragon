@@ -14,38 +14,67 @@ from datetime import datetime
 from pystac import ItemCollection
 import math 
 from joblib import Parallel, delayed
-import logging
 
-def read_and_process_band(file, gdf, target_resolution):
-    da = rxr.open_rasterio(file)
-    
-    if da.rio.crs != gdf.crs or da.rio.resolution()[0] != target_resolution:
-        da = da.rio.reproject(gdf.crs, resolution=target_resolution)
-    
-    da = da.rio.clip(gdf.geometry, gdf.crs)
-    
-    if 'band' in da.dims:
-        da = da.squeeze('band').drop_vars('band', errors='ignore')
-    
-    # Add time coordinate
-    time = pd.to_datetime(re.search(r'\d{8}', str(file)).group(), format='%Y%m%d')
-    # da.name = file.stem.split('_')[-2]
-    da = da.expand_dims('time').assign_coords(time=('time', [time]))
-    return da
+def extract_band_name(file_path):
+    """ Extracts the band name from a Sentinel file path using a regex. """
+    pattern = r'(B\d{2}|TCI|WFP|SCL|AOT)'
+    match = re.search(pattern, str(file_path.name))
+    return match.group(0) if match else None
 
-def build_minicube(band_files, gdf, resolution, num_workers=4):
-
-    datasets = Parallel(n_jobs=num_workers)(delayed(read_and_process_band)(file, gdf, resolution) for file in band_files)
+def remove_duplicate_bands(file_paths):
+    band_files = {}
+    for file_path in file_paths:
+        band_name = extract_band_name(file_path)
+        if band_name:
+            # Prioritize by choosing the first encountered or implement other logic
+            if band_name not in band_files:
+                band_files[band_name] = file_path
     
+    return list(band_files.values())
+
+def read_and_process_bands(img_folder, bands, gdf, target_resolution):
+
+    if bands:
+        band_files = [img_path for img_path in img_folder.glob(f"**/IMG_DATA/**/*.jp2") if any(band in img_path.stem for band in bands)]
+    else:
+        band_files = list(img_folder.glob(f"**/IMG_DATA/**/*.jp2"))
+
+    band_files = remove_duplicate_bands(band_files)
+
+    band_arrays = []
+    for band_file in band_files:
+        
+        da = rxr.open_rasterio(band_file)
+        
+        if da.rio.crs != gdf.crs or da.rio.resolution()[0] != target_resolution:
+            da = da.rio.reproject(gdf.crs, resolution=target_resolution)
+
+        da = da.rio.clip(gdf.geometry, gdf.crs)
+        
+        if 'band' in da.dims:
+            da = da.squeeze('band').drop_vars('band', errors='ignore')
+        
+        # Add time coordinate
+        time = pd.to_datetime(re.search(r'\d{8}', str(band_file)).group(), format='%Y%m%d')
+        da.name = extract_band_name(band_file)
+        da = da.expand_dims('time').assign_coords(time=('time', [time]))
+        band_arrays.append(da)
+    
+    band_arrays = sorted(band_arrays, key=lambda da: da.name)  # Example: sort by band name
+    return xr.merge(band_arrays)
+
+def build_minicube(output_dir, bands, gdf, resolution, num_workers=4):
+
+    resolution = resolve_resolution(gdf, resolution)
+
+    imgs_datasets = Parallel(n_jobs=num_workers)(delayed(read_and_process_bands)(img_dir, bands, gdf, resolution)for img_dir in output_dir.iterdir())
     # Merge all datasets into a single xarray Dataset
-    if datasets:
-        ds = xr.concat(datasets, dim='time')
+    if imgs_datasets:
+        ds = xr.concat(imgs_datasets, dim='time')
         ds = ds.sortby('time')  
     else:
         ds = xr.Dataset()
     
-    ds = ds.rio.pad_box(*gdf.total_bounds)
-
     return ds
 
 def meters_to_degrees(meters, latitude):
@@ -74,19 +103,8 @@ def resolve_resolution(shp, resolution):
     central_latitude = (bounds[1] + bounds[3]) / 2
 
     if crs.is_geographic:
-        if resolution < 1:  # Typically degrees would be a small decimal for geographic CRS
-            print("Resolution is assumed to be in degrees.")
-            return resolution
-        else:
-            print("Resolution assumed to be in meters, converting to degrees.")
-            return meters_to_degrees(resolution, central_latitude)
-    else:  # For projected CRS, assume large numbers are meters
-        if resolution < 1:  # Smaller numbers in a projected CRS are likely an error or misinterpretation
-            print("Resolution given in degrees unexpectedly in a projected CRS, converting to meters.")
-            return degrees_to_meters(resolution, central_latitude)
-        else:
-            print("Resolution is assumed to be in meters.")
-            return resolution
+        print(f"Assuming the provided resolution of '{resolution}' is in meters since the CRS is geographic. Automatically converting this resolution to degrees.")
+        return meters_to_degrees(resolution, central_latitude)
 
 def filter_unique_items(items, tile_id, product_type, max_cloud_cover=50):
     def extract(item, key, default=None):

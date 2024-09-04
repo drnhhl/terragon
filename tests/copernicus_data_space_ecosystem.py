@@ -1,39 +1,41 @@
 import unittest
 import terragon
 import geopandas as gpd
-import os
+import shutil
 from pathlib import Path
+import json
 
-# class TestCDSE(unittest.TestCase):
-#     def setUp(self):
-#         self.tg = terragon.init('cdse')
-#         self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
-#         # self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
+class TestCDSE(unittest.TestCase):
+    def setUp(self):
+        with open(file="/localhome/hoeh_pa/Organization/Technical/credentials/credentials.json") as file:
+            self.credentials = json.load(file)
+        self.tg = terragon.init('cdse', self.credentials)
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN_4326.shp.zip"))
+        self.arguments = dict(shp=self.gdf, collection='SENTINEL-2', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/download/')
 
-#     def test_collections(self):
-#         pass
+    def test_collections(self):
+        col = self.tg.retrieve_collections('sentinel')
+        self.assertTrue(len(col) > 0)
     
-#     def test_search(self):
-#         items = self.tg.search(**self.arguments)
-#         col_size = items.size().getInfo()
+    def test_search(self):
+        items = self.tg.search(**self.arguments)
+        self.assertTrue(len(items) > 0)
 
-#         self.assertTrue(col_size > 0)
+    def test_cube(self):
+        items = self.tg.search(**self.arguments)
+        cube = self.tg.download(items[:4], create_minicube=True)
+        self.assertTrue(cube is not None)
 
-#     def test_download(self):
-#         items = self.tg.search(**self.arguments)
-#         data = self.tg.download(items)
-#         self.assertTrue(data is not None)
+    def test_download_tifs(self):
+        items = self.tg.search(**self.arguments)
+        fns = self.tg.download(items[:4], create_minicube=False)
+        self.assertTrue(len(fns) > 0)
+        for fn in fns:
+            self.assertTrue(Path(fn).exists())
+        shutil.rmtree(self.arguments["download_folder"])
 
-#     def test_download_tifs(self):
-#         items = self.tg.search(**self.arguments)
-#         fns = self.tg.download(items, create_minicube=False)
-#         self.assertTrue(len(fns) > 0)
-#         for fn in fns:
-#             self.assertTrue(os.path.exists(fn))
-#             os.remove(fn)
-
-#     def test_create(self):
-#         self.tg.create(**self.arguments)
+    def test_create(self):
+        self.tg.create(**self.arguments)
 
 if __name__ == '__main__':
     unittest.main()
