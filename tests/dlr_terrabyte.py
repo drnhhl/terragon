@@ -7,7 +7,7 @@ class TestTB(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.tg = terragon.init('tb')
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
         self.arguments = dict(shp=self.gdf, collection='sentinel-1-slc', start_date='2021-01-01', end_date='2021-12-30', bands=['vv-g-lin'], resolution=10, download_folder='tests/download/')
 
     def test_collections(self):

@@ -9,7 +9,7 @@ class TestASF(unittest.TestCase):
     def setUp(self):
         self.tg = terragon.init('asf')
         self.tg.set_credentials(credentials_path=r"credentials\asf_credentials.json")
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
         self.gdf['geometry'] = self.gdf['geometry']
         self.arguments = dict(shp=self.gdf, collection='sentinel-1', start_date='2021-01-01', end_date='2021-06-30', download_folder='downloads', processing_level='GRD_HD')
 

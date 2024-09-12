@@ -8,8 +8,7 @@ class TestPC(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.tg = terragon.init('pc')
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN_3857.shp.zip"))
-        self.arguments = dict(shp=self.gdf, collection='sentinel-2-l2a', start_date='2021-01-01', end_date='2021-01-05', bands=['B02', 'B03', 'B04'], resolution=20, download_folder='tests/downloads/')
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
 
     def test_collections(self):
         col = self.tg.retrieve_collections('sentinel')
