@@ -16,8 +16,7 @@ class TestGEE(unittest.TestCase):
         dotenv.load_dotenv()
         ee.Initialize(project=os.getenv('gee_project_name'))
         self.tg = terragon.init('gee')
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.shp.zip"))
-        self.arguments = dict(shp=self.gdf, collection='COPERNICUS/S2_SR_HARMONIZED', start_date='2021-01-01', end_date='2021-01-05', bands=['B2', 'B3', 'B4'], resolution=20, download_folder='tests/download/')
+        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
 
     def test_collections(self):
         self.assertRaises(NotImplementedError, self.tg.retrieve_collections)
