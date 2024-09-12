@@ -57,18 +57,13 @@ class GEE(Base):
         img_col = img_col.toList(col_size)
         tmp_dir = self.param('download_folder', raise_error=~create_minicube)
         tmp_dir.mkdir(parents=True, exist_ok=True)
-        # iterate and download tifs
-        fns = []
-        for i in range(col_size): # TODO: parallelize, see https://developers.google.com/earth-engine/guides/usage
-            img = ee.Image(img_col.get(i))
-            id_prop = next((prop for prop in img.propertyNames().getInfo() if 'PRODUCT_ID' in prop), None)
-            img_id = img.get(id_prop).getInfo()
 
-            fileName = tmp_dir.joinpath(f'{img_id}_{hashlib.sha256(self.param("shp").geometry.iloc[0].wkt.encode("utf-8")).hexdigest()}.tif')
-            if not fileName.exists():
-                img = geedim.MaskedImage(img)
-                img.download(fileName, crs=self.crs_epsg, scale=self.param('resolution'), region=self._region.geometry())
-            fns.append(fileName)
+        # iterate and download tifs          
+        num_workers = self.param('num_workers')
+        if num_workers > 40:
+            warnings.warn(f"{num_workers} workers is most likely too high. Setting it to 40 for downloading, see https://developers.google.com/earth-engine/guides/usage.")
+            num_workers = 40
+        fns = Parallel(n_jobs=num_workers, backend='threading')(delayed(self.download_img)(img_col,i,tmp_dir) for i in range(col_size))
     
         if not create_minicube:
             return fns
@@ -79,6 +74,19 @@ class GEE(Base):
 
         ds = self.prepare_cube(ds)
         return ds
+
+    def download_img(self,img_col,i,tmp_dir):
+        img = ee.Image(img_col.get(i))
+        # get the first id which has product_id in it
+        id_prop = next((prop for prop in img.propertyNames().getInfo() if 'PRODUCT_ID' in prop), None)
+        img_id = img.get(id_prop).getInfo()
+
+        # create a unique filename through geometry since we are downloading clipped images
+        fileName = tmp_dir.joinpath(f'{img_id}_{hashlib.sha256(self.param("shp").geometry.iloc[0].wkt.encode("utf-8")).hexdigest()}.tif')
+        if not fileName.exists():
+            img = geedim.MaskedImage(img)
+            img.download(fileName, crs=self.crs_epsg, scale=self.param('resolution'), region=self._region.geometry())
+        return fileName
 
     def merge_gee_tifs(self, fns):
         """merge the tifs and crop the to the shp"""
