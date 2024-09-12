@@ -4,8 +4,9 @@ import geopandas as gpd
 import shutil
 import os
 from pathlib import Path
+from base import _TestBase
 
-class TestASF(unittest.TestCase):
+class TestASF(_TestBase, unittest.TestCase):
     def setUp(self):
         self.tg = terragon.init('asf')
         self.tg.set_credentials(credentials_path=r"credentials\asf_credentials.json")

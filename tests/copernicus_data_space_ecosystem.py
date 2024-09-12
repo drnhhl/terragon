@@ -4,8 +4,9 @@ import geopandas as gpd
 import shutil
 from pathlib import Path
 import json
+from base import _TestBase
 
-class TestCDSE(unittest.TestCase):
+class TestCDSE(_TestBase, unittest.TestCase):
     def setUp(self):
         with open(file="/localhome/hoeh_pa/Organization/Technical/credentials/credentials.json") as file:
             self.credentials = json.load(file)
