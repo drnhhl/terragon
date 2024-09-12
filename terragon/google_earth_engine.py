@@ -98,7 +98,6 @@ class GEE(Base):
             da = rxr.open_rasterio(fn)
             if da.rio.crs != shp.crs:
                 da = da.rio.reproject(shp.crs, resolution=self.param('resolution'))
-            da = da.rio.clip(shp.geometry)
             time_str = re.findall(date_pattern, str(fn))[0]
             da = da.assign_coords(time=pd.to_datetime(time_str, format='%Y%m%d'))
             return da

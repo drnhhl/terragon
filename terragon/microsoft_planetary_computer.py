@@ -6,7 +6,7 @@ import planetary_computer as pc
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .base import Base
-from.utils import resolve_resolution
+from .utils import resolve_resolution
 
 class PC(Base):
     def __init__(self, credentials:str=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
