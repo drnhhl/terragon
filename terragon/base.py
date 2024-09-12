@@ -33,6 +33,7 @@ class Base(ABC):
             'start_date': self.get_param('start_date', None) if not kwargs else self.get_param('start_date', **kwargs),
             'end_date': self.get_param('end_date', None) if not kwargs else self.get_param('end_date', **kwargs),
             'resolution': self.get_param('resolution', None) if not kwargs else self.get_param('resolution', **kwargs),
+            'clip_to_shp': self.get_param('clip_to_shp', True) if not kwargs else self.get_param('clip_to_shp', **kwargs),
             'download_folder': self.get_param('download_folder', Path('./eo_download/')) if not kwargs else self.get_param('download_folder', **kwargs),
             'num_workers': self.get_param('num_workers', 1) if not kwargs else self.get_param('num_workers', **kwargs),
         }
@@ -52,8 +53,7 @@ class Base(ABC):
     def retrieve_collections(self, ):
         pass
     
-    # to much varibales in search, how to make it more flexible?
-    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, download_folder:str=None, processing_level:str=None, num_workers:int=1):
+    def search(self, shp:gpd.GeoDataFrame, collection:str, bands:list=None, start_date:str=None, end_date:str=None, resolution=None, filter:dict=None, clip_to_shp:bool=True, download_folder:str=None, num_workers:int=1):
         """Take all arguments and store them."""
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
@@ -61,7 +61,8 @@ class Base(ABC):
         if isinstance(download_folder, str):
             download_folder = Path(download_folder)
         self._parameters.update({'shp': shp, 'collection': collection, 'bands': bands, 'start_date': start_date,
-                                'end_date': end_date, 'resolution': resolution, 'filter': filter, 'download_folder': download_folder, "processing_level": processing_level, 'num_workers': num_workers})
+                                'end_date': end_date, 'resolution': resolution, 'filter': filter,
+                                'clip_to_shp': clip_to_shp, 'download_folder': download_folder, 'num_workers': num_workers})
         
     @abstractmethod
     def download(self, items, create_minicube=True):
@@ -75,6 +76,10 @@ class Base(ABC):
 
     def prepare_cube(self, ds):
         """rename, reorder, and remove/add attributes to the dataset."""
+        # clip extend to the exact shape
+        if self.param('clip_to_shp'):
+            ds = ds.rio.clip(self.param('shp').geometry)
+        
         # delete the attrs
         ds.attrs = {}
         for var in ds:
