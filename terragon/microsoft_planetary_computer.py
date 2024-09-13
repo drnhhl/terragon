@@ -9,11 +9,11 @@ from .base import Base
 from .utils import resolve_resolution
 
 class PC(Base):
-    def __init__(self, credentials:str=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
+    def __init__(self, credentials:dict=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
         super().__init__()
         self.base_url = base_url
         if credentials:
-            pc.set_subscription_key(self.api_key)
+            pc.set_subscription_key(credentials['api_key'])
 
     def retrieve_collections(self, filter_by_name: str=None):
         collections_url = urljoin(self.base_url, "collections")

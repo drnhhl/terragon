@@ -14,7 +14,7 @@ from .base import Base
 from .utils import rm_files
 
 class GEE(Base):
-    def __init__(self, credentials=None):
+    def __init__(self, credentials:dict=None):
         super().__init__()
         if not ee.data._credentials:
             raise RuntimeError("GEE not initialized. Did you run 'ee.Authenticate()' and ee.Initialize(project='my-project')?")
@@ -44,8 +44,7 @@ class GEE(Base):
         shp_4326 = self._reproject_shp(self.param('shp'))
 
         # reproject images
-        self.crs_epsg = f"EPSG:{self.param('shp').crs.to_epsg()}"
-        img_col = img_col.map(lambda img: img.reproject(crs=self.crs_epsg, crsTransform=None, scale=self.param('resolution')))
+        img_col = img_col.map(lambda img: img.reproject(crs=f"EPSG:{self.param('shp').crs.to_epsg()}", crsTransform=None, scale=self.param('resolution')))
         
         # clip images
         self._region = ee.FeatureCollection(json.loads(shp_4326['geometry'].to_json()))
@@ -55,16 +54,17 @@ class GEE(Base):
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
         img_col = img_col.toList(col_size)
-        tmp_dir = self.param('download_folder', raise_error=~create_minicube)
+        tmp_dir = self.param('download_folder', raise_error=not create_minicube)
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # iterate and download tifs          
         num_workers = self.param('num_workers')
         if num_workers > 40:
-            warnings.warn(f"{num_workers} workers is most likely too high. Setting it to 40 for downloading, see https://developers.google.com/earth-engine/guides/usage.")
+            warnings.warn(f"{num_workers} workers is most likely too high. \
+                Setting it to 40 for downloading, see https://developers.google.com/earth-engine/guides/usage.")
             num_workers = 40
-        fns = Parallel(n_jobs=num_workers, backend='threading')(delayed(self.download_img)(img_col,i,tmp_dir) for i in range(col_size))
-    
+        fns = Parallel(n_jobs=num_workers, backend='threading')(delayed(self.download_img)(img_col,i,tmp_dir, self.param('shp'), self.param('resolution')) for i in range(col_size))
+
         if not create_minicube:
             return fns
         ds = self.merge_gee_tifs(fns)
@@ -75,17 +75,26 @@ class GEE(Base):
         ds = self.prepare_cube(ds)
         return ds
 
-    def download_img(self,img_col,i,tmp_dir):
+    def download_img(self,img_col,i,tmp_dir,shp, resolution):
         img = ee.Image(img_col.get(i))
-        # get the first id which has product_id in it
-        id_prop = next((prop for prop in img.propertyNames().getInfo() if 'PRODUCT_ID' in prop), None)
-        img_id = img.get(id_prop).getInfo()
+        # get the system id
+        id_prop = next((prop for prop in img.propertyNames().getInfo() if 'system:id' in prop), None)
+        if not id_prop:
+            warnings.warn(f"Could not find system:id property in image {i}. \
+                Using consecutive numbers of images, but this can lead to problems wiht overwriting files.")
+            img_id = i
+        else:
+            img_id = img.get(id_prop).getInfo()
+            # replace the / with _ to avoid problems with file paths
+            img_id = img_id.replace('/', '_')
 
         # create a unique filename through geometry since we are downloading clipped images
-        fileName = tmp_dir.joinpath(f'{img_id}_{hashlib.sha256(self.param("shp").geometry.iloc[0].wkt.encode("utf-8")).hexdigest()}.tif')
+        geom_hash = hashlib.sha256(shp.geometry.iloc[0].wkt.encode("utf-8")).hexdigest()
+        fileName = tmp_dir.joinpath(f'{img_id}_{geom_hash}.tif')
         if not fileName.exists():
             img = geedim.MaskedImage(img)
             img.download(fileName, crs=self.crs_epsg, scale=self.param('resolution'), region=self._region.geometry())
+            img.download(fileName, crs=f"EPSG:{shp.crs.to_epsg()}", scale=resolution, region=self._region.geometry())
         return fileName
 
     def merge_gee_tifs(self, fns):
