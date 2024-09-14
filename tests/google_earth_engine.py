@@ -1,18 +1,15 @@
-# %%
 import unittest
 import os
 import ee
 import dotenv
 import terragon
-import geopandas as gpd
-from pathlib import Path
 from base import _TestBase
 
-class TestGEEInit(unittest.TestCase):
+class Test01GEE(unittest.TestCase): # 01 is important since it should run first
     def test_not_initialized(self):
         self.assertRaises(RuntimeError, terragon.init, 'gee')
 
-class TestGEE(_TestBase, unittest.TestCase):
+class Test02GEE(_TestBase, unittest.TestCase):
     def setUp(self):
         super().setUp()
 
@@ -20,7 +17,6 @@ class TestGEE(_TestBase, unittest.TestCase):
         ee.Initialize(project=os.getenv('gee_project_name'))
         
         self.tg = terragon.init('gee')
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
         self.arguments['collection'] = 'COPERNICUS/S2_SR_HARMONIZED'
         self.arguments['bands'] = ['B2', 'B3', 'B4']
 
@@ -36,4 +32,11 @@ class TestGEE(_TestBase, unittest.TestCase):
         self.assertTrue(col_size > 0)
 
 if __name__ == '__main__':
-    unittest.main()
+    suite = unittest.TestSuite()
+
+    # make sure init test is run before, otherwise gee will be already initialized
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Test01GEE))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Test02GEE))
+
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
