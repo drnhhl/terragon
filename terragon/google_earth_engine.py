@@ -11,7 +11,7 @@ import pandas as pd
 from pathlib import Path
 from joblib import Parallel, delayed
 from .base import Base
-from .utils import rm_files
+from .utils import rm_files, meters_to_crs_unit
 
 class GEE(Base):
     def __init__(self, credentials:dict=None):
@@ -93,7 +93,6 @@ class GEE(Base):
         fileName = tmp_dir.joinpath(f'{img_id}_{geom_hash}.tif')
         if not fileName.exists():
             img = geedim.MaskedImage(img)
-            img.download(fileName, crs=self.crs_epsg, scale=self.param('resolution'), region=self._region.geometry())
             img.download(fileName, crs=f"EPSG:{shp.crs.to_epsg()}", scale=resolution, region=self._region.geometry())
         return fileName
 
@@ -103,10 +102,12 @@ class GEE(Base):
             raise ValueError("No files provided to merge.")
         date_pattern = r'\d{8}'
         shp = self.param('shp')
+        resolution = self.param('resolution')
         def load_tif(fn):
             da = rxr.open_rasterio(fn)
             if da.rio.crs != shp.crs:
-                da = da.rio.reproject(shp.crs, resolution=self.param('resolution'))
+                res = meters_to_crs_unit(resolution, shp)
+                da = da.rio.reproject(shp.crs, resolution=res)
             time_str = re.findall(date_pattern, str(fn))[0]
             da = da.assign_coords(time=pd.to_datetime(time_str, format='%Y%m%d'))
             return da

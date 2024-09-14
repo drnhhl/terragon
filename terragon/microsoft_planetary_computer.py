@@ -6,7 +6,7 @@ import planetary_computer as pc
 from urllib.parse import urljoin
 from joblib import Parallel, delayed
 from .base import Base
-from .utils import resolve_resolution
+from .utils import meters_to_crs_unit
 
 class PC(Base):
     def __init__(self, credentials:dict=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):
@@ -57,13 +57,12 @@ class PC(Base):
         
         shp = self.param('shp')
         bounds = list(shp.bounds.values[0])
-        crs = shp.crs
-        res = resolve_resolution(shp, self.param('resolution', raise_error=True)) # TODO needs to be changed to use standard resolution
+        res = meters_to_crs_unit(self.param('resolution'), shp)
 
         if create_minicube:
             ds = odc.stac.load(items,
                 bands=self.param('bands'),
-                crs=crs,
+                crs=shp.crs,
                 resolution=res,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3])
@@ -79,4 +78,3 @@ class PC(Base):
             urls = [item.assets[band].href for item in items for band in bands]
             Parallel(n_jobs=self.param('num_workers'))(delayed(self.download_file)(url, fn) for url, fn in zip(urls, fns))
             return fns
-
