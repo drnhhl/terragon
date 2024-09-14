@@ -1,20 +1,22 @@
-import xarray as xr
-import pandas as pd
-import rioxarray as rxr
+import math
 import re
-from shapely.geometry import Polygon, MultiPolygon, Point
-from shapely.geometry.polygon import orient
-from pathlib import Path
-import geopandas as gpd
-import tempfile 
-import zipfile
 import shutil
-from urllib.parse import urljoin
+import tempfile
+import zipfile
 from datetime import datetime
-from pystac import ItemCollection
-import math 
-from joblib import Parallel, delayed
+from pathlib import Path
+from urllib.parse import urljoin
+
+import geopandas as gpd
+import pandas as pd
 import pyproj
+import rioxarray as rxr
+import xarray as xr
+from joblib import Parallel, delayed
+from pystac import ItemCollection
+from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry.polygon import orient
+
 
 def extract_band_name(file_path):
     """ Extracts the band name from a Sentinel file path using a regex. """

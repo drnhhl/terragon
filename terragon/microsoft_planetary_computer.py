@@ -1,12 +1,14 @@
+from urllib.parse import urljoin
+
 import odc.stac
+import planetary_computer as pc
 import pystac_client
 import requests
-import planetary_computer as pc
-
-from urllib.parse import urljoin
 from joblib import Parallel, delayed
+
 from .base import Base
 from .utils import meters_to_crs_unit
+
 
 class PC(Base):
     def __init__(self, credentials:dict=None, base_url:str="https://planetarycomputer.microsoft.com/api/stac/v1/"):

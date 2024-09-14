@@ -1,9 +1,12 @@
-import unittest
 import os
+import unittest
+
 import ee
-import terragon
 from base import _TestBase
 from utils import load_env_variables
+
+import terragon
+
 
 class Test01GEE(unittest.TestCase): # 01 is important since it should run first
     def test_not_initialized(self):

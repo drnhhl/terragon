@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def visualize_sat_images(da, gdf, bands):
     assert 0 < len(bands) < 4 # up to 3 bands
     
