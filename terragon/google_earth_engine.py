@@ -1,18 +1,18 @@
-import ee
-import geedim
-import json
-import os
 import hashlib
+import json
 import re
-import xarray as xr
-import rioxarray as rxr
-import pandas as pd
 import warnings
 
-from pathlib import Path
+import ee
+import geedim
+import pandas as pd
+import rioxarray as rxr
+import xarray as xr
 from joblib import Parallel, delayed
+
 from .base import Base
-from .utils import rm_files, meters_to_crs_unit
+from .utils import meters_to_crs_unit, rm_files
+
 
 class GEE(Base):
     def __init__(self, credentials:dict=None):

@@ -1,6 +1,9 @@
 import unittest
-import terragon
+
 from base import _TestBase
+
+import terragon
+
 
 class TestPC(_TestBase, unittest.TestCase):
     def setUp(self):

@@ -1,8 +1,7 @@
-import unittest
-import terragon
-import geopandas as gpd
-import os
 from pathlib import Path
+
+import geopandas as gpd
+
 
 class _TestBase():
     """Base class in order define the basic test functionality."""
