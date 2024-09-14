@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import geopandas as gpd
+import rioxarray as rxr
 import requests
 
 
@@ -79,7 +80,7 @@ class Base(ABC):
     def get_param(self, name, default=None, raise_error=False):
         """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""
         if raise_error and (
-            not name in self._parameters.keys() or self._parameters[name] is None
+            name not in self._parameters.keys() or self._parameters[name] is None
         ):
             raise ValueError(
                 f"Parameter {name} was not set, but is required for this operation."
