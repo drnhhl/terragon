@@ -1,8 +1,5 @@
 import unittest
 import terragon
-import geopandas as gpd
-import os
-from pathlib import Path
 from base import _TestBase
 
 class TestPC(_TestBase, unittest.TestCase):
