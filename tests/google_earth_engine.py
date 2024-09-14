@@ -1,9 +1,9 @@
 import unittest
 import os
 import ee
-import dotenv
 import terragon
 from base import _TestBase
+from utils import load_env_variables
 
 class Test01GEE(unittest.TestCase): # 01 is important since it should run first
     def test_not_initialized(self):
@@ -12,9 +12,8 @@ class Test01GEE(unittest.TestCase): # 01 is important since it should run first
 class Test02GEE(_TestBase, unittest.TestCase):
     def setUp(self):
         super().setUp()
-
-        dotenv.load_dotenv()
-        ee.Initialize(project=os.getenv('gee_project_name'))
+        load_env_variables() # load the .env vars if running locally
+        ee.Initialize(project=os.getenv('GEE_PROJECT_NAME'))
         
         self.tg = terragon.init('gee')
         self.arguments['collection'] = 'COPERNICUS/S2_SR_HARMONIZED'
@@ -32,11 +31,4 @@ class Test02GEE(_TestBase, unittest.TestCase):
         self.assertTrue(col_size > 0)
 
 if __name__ == '__main__':
-    suite = unittest.TestSuite()
-
-    # make sure init test is run before, otherwise gee will be already initialized
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Test01GEE))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(Test02GEE))
-
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    unittest.main()
