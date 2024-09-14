@@ -2,13 +2,10 @@
 # https://github.com/gee-community/geemap/discussions/1341
 import os
 
-import ee
-
 ee_token = os.environ["EARTHENGINE_TOKEN"]
+credential = '{"refresh_token":"%s"}' % ee_token
 credential_file_path = os.path.expanduser("~/.config/earthengine/")
 os.makedirs(credential_file_path, exist_ok=True)
 with open(credential_file_path + "credentials", "w") as file:
-    file.write(ee_token)
+    file.write(credential)
 
-# test if the token is working
-ee.Initialize(project=os.getenv("GEE_PROJECT_NAME"))
