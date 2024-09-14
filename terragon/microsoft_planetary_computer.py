@@ -59,7 +59,7 @@ class PC(Base):
 
         items = search.item_collection()
         if len(items) == 0:
-            raise ValueError(f"No items found")
+            raise ValueError("No items found")
         return items
 
     def download(self, items=None, create_minicube=True):
