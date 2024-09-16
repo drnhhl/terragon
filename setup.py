@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import pathlib
 
 VERSION = "0.0.1"
 
@@ -18,11 +19,15 @@ EXTRAS_REQUIRE = {
     ],  # Optional dependency for pc
 }
 
+long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
+
 setup(
-    name="terragon",
+    name="terragon-downloader",
     version=VERSION,
     license="MIT",
     description="Create EO Minicubes from Polygons and simplify EO Data downloading.",
+    long_description=long_description,  # Include the README as long description
+    long_description_content_type='text/markdown',
     author="Adrian Höhl",
     author_email="adrian.hoehl@tum.de",
     url="https://github.com/drnhhl/terragon",

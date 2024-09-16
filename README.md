@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://github.com/drnhhl/terragon"><img src="docs/_static/logo.png" style="width: 200px" ></a>
+    <a href="https://github.com/drnhhl/terragon"><img src="https://github.com/drnhhl/terragon/raw/main/docs/_static/logo.png" style="width: 200px" ></a>
 </p>
 <h1 align="center">Terragon</h1>
 <p align="center">
@@ -59,7 +59,7 @@ da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the
                resolution=20, # pixel size in meter
                )
 ```
-Other data backends work with the same principle, check out the [Demos](demo_files).
+Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/demo_files).
 
 ## Contribute
 You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
