@@ -8,15 +8,19 @@ VERSION = "0.0.1"
 INSTALL_REQUIRES = [
     "geopandas",
     "rioxarray",
+    "joblib",
+    "requests",
 ]
 
 EXTRAS_REQUIRE = {
-    "gee": ["earthengine-api", "geedim"],  # Optional dependencies for gee
-    "pc": [
+    "gee": [ # Optional dependencies for gee
+        "earthengine-api",
+        "geedim",
+    ],
+    "pc": [ # Optional dependency for pc
         "planetary-computer",
         "odc-stac",
-        "pystac-client",
-    ],  # Optional dependency for pc
+    ],
 }
 
 long_description = (pathlib.Path(__file__).parent / "README.md").read_text()
@@ -34,6 +38,7 @@ setup(
     packages=["terragon"],
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRAS_REQUIRE,
+    python_requires=">=3.9",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Science/Research",
