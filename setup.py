@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from setuptools import setup
 import pathlib
+
+from setuptools import setup
 
 VERSION = "0.0.1"
 
@@ -13,11 +14,11 @@ INSTALL_REQUIRES = [
 ]
 
 EXTRAS_REQUIRE = {
-    "gee": [ # Optional dependencies for gee
+    "gee": [  # Optional dependencies for gee
         "earthengine-api",
         "geedim",
     ],
-    "pc": [ # Optional dependency for pc
+    "pc": [  # Optional dependency for pc
         "planetary-computer",
         "odc-stac",
     ],
@@ -31,7 +32,7 @@ setup(
     license="MIT",
     description="Create EO Minicubes from Polygons and simplify EO Data downloading.",
     long_description=long_description,  # Include the README as long description
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     author="Adrian Höhl",
     author_email="adrian.hoehl@tum.de",
     url="https://github.com/drnhhl/terragon",

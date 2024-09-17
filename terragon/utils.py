@@ -1,6 +1,7 @@
 import pyproj
 from shapely.geometry import Point
 
+
 def rm_files(fns):
     for fn in fns:
         if fn.exists():

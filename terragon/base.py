@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import geopandas as gpd
-import rioxarray as rxr
 import requests
+import rioxarray as rxr
 
 
 class Base(ABC):
@@ -140,7 +140,9 @@ class Base(ABC):
     def prepare_cube(self, ds):
         """rename, reorder, and remove/add attributes to the dataset."""
         # clip extend to the exact shape
-        if self.param("clip_to_shp"):
+        if self.param(
+            "clip_to_shp"
+        ):  # TODO gives warning for gee: /mnt/SSD1/adrian/miniconda3/envs/v1/lib/python3.10/site-packages/xarray/core/duck_array_ops.py:215: RuntimeWarning: invalid value encountered in cast return data.astype(dtype, **kwargs)
             ds = ds.rio.clip(self.param("shp").geometry)
 
         # delete the attrs
