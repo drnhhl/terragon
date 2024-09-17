@@ -24,13 +24,13 @@ Coming soon:
 ## Usage
 ### Installation
 Install the package via PyPi:
-´´´python
+```python
 pip install terragon-downloader
-´´´
+```
 Optional with the dependency you want to use:
-´´´python
+```python
 pip install terragon-downloader[pc]
-´´´
+```
 ### Downloading EO data
 ```python
 import terragon
