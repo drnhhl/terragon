@@ -7,6 +7,7 @@ __pycache__/
 **/credentials
 
 # download files
+**/download
 **/downloads
 
 # C extensions
