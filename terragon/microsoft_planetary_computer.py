@@ -4,6 +4,7 @@ import odc.stac
 import planetary_computer as pc
 import pystac_client
 import requests
+import shutil
 from joblib import Parallel, delayed
 
 from .base import Base
@@ -19,6 +20,8 @@ class PC(Base):
         super().__init__()
         self.base_url = base_url
         if credentials:
+            if not "api_key" in credentials:
+                raise ValueError("api_key not in credentials, could not initialize PC.")
             pc.set_subscription_key(credentials["api_key"])
 
     def retrieve_collections(self, filter_by_name: str = None):
@@ -78,7 +81,7 @@ class PC(Base):
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3]),
             )
-            ds = self.prepare_cube(ds)
+            ds = self._prepare_cube(ds)
             return ds
         else:
             bands = self.param("bands")
@@ -94,6 +97,23 @@ class PC(Base):
             ]
             urls = [item.assets[band].href for item in items for band in bands]
             Parallel(n_jobs=self.param("num_workers"))(
-                delayed(self.download_file)(url, fn) for url, fn in zip(urls, fns)
+                delayed(self._download_file)(url, fn) for url, fn in zip(urls, fns)
             )
             return fns
+
+    def _download_file(self, url, fn):
+        """download a file from a url into fn."""
+        if fn.exists():
+            return
+        response = requests.get(url, stream=True)
+        if response.status_code != 200:
+            raise RuntimeError(f"Url {url} response code: {response.status_code}.")
+        try:  # download the file
+            with open(fn, "wb") as f:
+                shutil.copyfileobj(response.raw, f)
+        except Exception as e:
+            if fn.exists():
+                fn.unlink()
+            raise RuntimeError(f"Failed to download {url} with error {e}")
+        finally:
+            response.close()

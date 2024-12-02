@@ -1,10 +1,6 @@
-import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import geopandas as gpd
-import requests
-import rioxarray as rxr
 
 
 class Base(ABC):
@@ -172,20 +168,3 @@ class Base(ABC):
         }
 
         return ds
-
-    def download_file(self, url, fn):
-        """download a file from a url into fn."""
-        if fn.exists():
-            return
-        response = requests.get(url, stream=True)
-        if response.status_code != 200:
-            raise RuntimeError(f"Url {url} response code: {response.status_code}.")
-        try:  # download the file
-            with open(fn, "wb") as f:
-                shutil.copyfileobj(response.raw, f)
-        except Exception as e:
-            if fn.exists():
-                fn.unlink()
-            raise RuntimeError(f"Failed to download {url} with error {e}")
-        finally:
-            response.close()
