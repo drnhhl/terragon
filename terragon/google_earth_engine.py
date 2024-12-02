@@ -27,12 +27,15 @@ class GEE(Base):
             "GEE does not have a collection endpoint. Please, visit https://developers.google.com/earth-engine/datasets/catalog"
         )
 
-    def search(self, **kwargs):
+    def search(self, rm_tmp_files=True, **kwargs):
         super().search(**kwargs)
+        self._parameters.update({'rm_tmp_files': rm_tmp_files})
 
         img_col = ee.ImageCollection(self.param("collection"))
         start_date = self.param("start_date")
         end_date = self.param("end_date")
+        # end date is exclusive in GEE, make end_date inclusive
+        end_date = f"{end_date}T23:59:59.999" if not "T" in end_date else end_date
         if start_date and end_date:
             img_col = img_col.filterDate(start_date, end_date)
         elif start_date:
@@ -45,7 +48,7 @@ class GEE(Base):
 
         return img_col
 
-    def download(self, img_col, create_minicube=True, remove_tmp=True):
+    def download(self, img_col, create_minicube=True):
         shp_4326 = self._reproject_shp(self.param("shp"))
 
         # reproject images
@@ -77,7 +80,7 @@ class GEE(Base):
             )
             num_workers = 40
         fns = Parallel(n_jobs=num_workers, backend="threading")(
-            delayed(self.download_img)(
+            delayed(self._download_img)(
                 img_col, i, tmp_dir, self.param("shp"), self.param("resolution")
             )
             for i in range(col_size)
@@ -85,15 +88,15 @@ class GEE(Base):
 
         if not create_minicube:
             return fns
-        ds = self.merge_gee_tifs(fns)
+        ds = self._merge_gee_tifs(fns)
         # remove the temp files
-        if remove_tmp:
+        if self.param('rm_tmp_files'):
             rm_files(fns)
 
-        ds = self.prepare_cube(ds)
+        ds = self._prepare_cube(ds)
         return ds
 
-    def download_img(self, img_col, i, tmp_dir, shp, resolution):
+    def _download_img(self, img_col, i, tmp_dir, shp, resolution):
         img = ee.Image(img_col.get(i))
         # get the system id
         id_prop = next(
@@ -124,7 +127,7 @@ class GEE(Base):
             )
         return fileName
 
-    def merge_gee_tifs(self, fns):
+    def _merge_gee_tifs(self, fns):
         """merge the tifs and crop the to the shp"""
         if len(fns) < 1:
             raise ValueError("No files provided to merge.")
