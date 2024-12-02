@@ -80,10 +80,11 @@ class Base(ABC):
     def get_param(self, name, default=None, raise_error=False):
         """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""
         if raise_error and (
-            name not in self._parameters.keys() or self._parameters[name] is None
+            name not in self._parameters.keys() or self._parameters[name] is None or \
+                (isinstance(self._parameters[name], (list, tuple, set, dict)) and not self._parameters[name])
         ):
             raise ValueError(
-                f"Parameter {name} was not set, but is required for this operation."
+                f"Parameter '{name}' was not set, but is required for this operation."
             )
         return self._parameters.get(name, default)
 
@@ -137,7 +138,7 @@ class Base(ABC):
             shp = shp.to_crs(epsg)
         return shp
 
-    def prepare_cube(self, ds):
+    def _prepare_cube(self, ds):
         """rename, reorder, and remove/add attributes to the dataset."""
         # clip extend to the exact shape
         if self.param(
