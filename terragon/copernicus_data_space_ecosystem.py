@@ -26,9 +26,10 @@ class CDSE(Base):
     f"""currently only {supported_collections} are supported."""
     s3 = None # object storing the s3 session
 
-    def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/"):
+    def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/", end_point_url:str="https://eodata.dataspace.copernicus.eu"):
         super().__init__()
         self.base_url = base_url
+        self.end_point_url = end_point_url
         if credentials:
             if not "aws_access_key_id" in credentials or not "aws_secret_access_key" in credentials:
                 raise ValueError("aws_access_key_id or aws_secret_access_key not in credentials, could not initialize.")
@@ -50,7 +51,7 @@ class CDSE(Base):
 
     def search(self, rm_tmp_files=True, use_virtual_rasterio_file=True, resampling=rasterio.enums.Resampling.nearest, filter_asset_path={'COP-DEM': ".*/DEM/.*", 'SENTINEL-2': '.*/IMG_DATA/.*'}, **kwargs):
         super().search(**kwargs)
-        self._parameters.update({'rm_tmp_files': rm_tmp_files, 'use_virtual_rasterio_file': use_virtual_rasterio_file, 'resampling':resampling, 'filter_asset_path':filter_asset_path})# TODO move this to the input params
+        self._parameters.update({'rm_tmp_files': rm_tmp_files, 'use_virtual_rasterio_file': use_virtual_rasterio_file, 'resampling':resampling, 'filter_asset_path':filter_asset_path})
 
         if self.param("collection") not in supported_collections:
             warnings.warn(f"Currently we only support collections: {supported_collections}")
@@ -104,6 +105,7 @@ class CDSE(Base):
         return items
 
     def _get_pages(self, data):
+        """loop through the api pages and return all items."""
         items = []
         for i in range(1,100):
             _data = data.copy()
@@ -125,7 +127,7 @@ class CDSE(Base):
     def download(self, items, create_minicube=True):
         if create_minicube:
             ds = self._download_to_minicube(items, self.param("resolution"), self.param("bands", raise_error=True), self.param("shp"))
-            ds = self._prepare_cube(ds)
+            ds = self.prepare_cube(ds)
             return ds
         else:
             return self._download_to_files(items, self.param("resolution"), self.param("bands", raise_error=True), self.param("shp"))
@@ -145,95 +147,82 @@ class CDSE(Base):
         for f_path in f_paths:
             fn = self.param('download_folder') / Path('_'.join(f_path.with_suffix(".tif").parts))
             if not fn.exists():
-                clipped = self._download_file_tile(f_path, self.param("shp"))[0]
+                clipped = self._download_file(f_path, self.param("shp"))
                 clipped.rio.to_raster(fn)
             fns.append(fn)
         return fns
 
     def _download_to_minicube(self, items, resolution, bands, shp):
         """Download all items and merge them into a dataset."""
-        # TODO how to parallelize?
-        # go through the items
-        time_data = []
-        time_data, crs_list = [], []
-        for item in items:
-            ds = self._download_item(item, resolution, bands, shp)
-            time_data.append(ds)
+        datasets = Parallel(n_jobs=self.param('num_workers'))(delayed(self._download_item)(item, resolution, band, shp) for item, band in itertools.product(items, bands))
+        # extract list of lists [[item1band1, item1band2, ...], [item2band1, item2band2, ...], ...]
+        datasets = [datasets[i:i + len(bands)] for i in range(0, len(datasets), len(bands))]
+        # combine them to dataset with time data [ds1, ds2, ...]
+        time_data = Parallel(n_jobs=self.param('num_workers'))(delayed(self._combine_bands)(datasets[i], resolution, shp, bands) for i in range(len(datasets)))
 
-        # skip items which were not found
+        # combine the time data
         if all([ds is None for ds in time_data]):
             raise RuntimeError("No items were found.")
         
+        # extract time information for each dataset
         if len(time_data) != len(items):
             raise RuntimeError("Lengths of downloaded items and requested items do not match.")
-        times = [item["properties"]["datetime"] for item in items] # TODO make this more elegant
-        time_data, times = zip(*[(ds, time) for ds, time in zip(time_data, times) if ds is not None])
-        time_data = list(time_data)
-        times = list(times)
+        # skip items which were not found
+        time_data, times = map(list, zip(*[(ds, item["properties"]["datetime"]) for ds, item in zip(time_data, items) if ds is not None]))
 
         time_data = self._align_coords(time_data, shp)
 
-        # add coords (would have been removed by reproject_match)
+        # add time coords (would have been removed by reproject_match in _align_coords)
         time_data = [ds.assign_coords(time=("time", pd.to_datetime([time]).tz_convert(None))) for ds, time in zip(time_data, times)]
-        # time_data = [ds.assign_coords(id=("time", [item['id']])) for ds, item in zip(time_data, items)]
 
         # merge time
         data = xr.concat(time_data, dim='time', join="exact").sortby('time')
         return data
 
-    def _download_item(self, item, resolution, bands, shp):
+    def _download_item(self, item, resolution, band, shp):
         """Download all bands of an item and merge them into a dataset."""
         # go through the bands
-        band_data = []
-
-        for band in bands:
-            f_paths = self._get_asset_path(item, band, resolution)
-            if len(f_paths) > 1:
-                # if there are multiple assets, merge them
-                datasets, resolutions, crss = [], [], [] # TODO make this more elegant
-                for f_path in f_paths:
-                    ds = self._download_file(f_path, shp)
-                    if ds is None:
-                        continue
-                    if not 'band' in ds.coords:
-                        # add band dim
-                        ds = ds.expand_dims('band')
-                    # rename band each band coord with filename to make sure they are unique + identifyable later
-                    ds = ds.assign_coords(band=[f"{f_path.stem}_{old}" for old in ds.coords['band'].values])
-                    datasets.append(ds)
-                if len(datasets) > 1:
-                    warnings.warn(f"Multiple files found for band {band}: {f_paths}.\nWill continue to add them as new bands.")
-            f_path, s3 = self._get_asset_path(item, band, resolution)
-            if self.param("use_virtual_rasterio_file"):
-                clipped, res, src_crs = self._download_file_rasterio(f_path, shp)
-                    if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]):
-                        datasets = self._align_coords(datasets, shp)
-                        # raise ValueError(f"All files need to have the same crs.")
-                    if not all([ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]):
-                        datasets = self._align_resolutions(datasets, resolution, shp)
-                        # raise ValueError(f"All files need to have the same resolution.")
-                    # add them as new bands
-                    clipped = xr.concat(datasets, dim='band')
-                elif len(datasets) == 0:
-                    clipped = None
-                else:
-                    clipped = datasets[0]
-                band_data.append(clipped)
+        f_paths = self._get_asset_path(item, band, resolution)
+        if len(f_paths) > 1:
+            # if there are multiple assets, merge them
+            datasets = []
+            for f_path in f_paths:
+                ds = self._download_file(f_path, shp)
+                if ds is None:
+                    continue
+                if not 'band' in ds.coords:
+                    # add band dim
+                    ds = ds.expand_dims('band')
+                # rename band each band coord with filename to make sure they are unique + identifyable later
+                ds = ds.assign_coords(band=[f"{f_path.stem}_{old}" for old in ds.coords['band'].values])
+                datasets.append(ds)
+            if len(datasets) > 1:
+                warnings.warn(f"Multiple files found for band {band}: {f_paths}.\nWill continue to add them as new bands.")
+                if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]):
+                    datasets = self._align_coords(datasets, shp)
+                if not all([ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]):
+                    datasets = self._align_resolutions(datasets, resolution, shp)
+                # add them as new bands
+                clipped = xr.concat(datasets, dim='band')
+            elif len(datasets) == 0:
+                clipped = None
             else:
-                clipped = self._download_file(f_paths[0], shp)
-                band_data.append(clipped)
+                clipped = datasets[0]
+        else:
+            # single asset
+            clipped = self._download_file(f_paths[0], shp)
 
-                clipped, res, src_crs = self._download_file(f_path, s3, shp)
-            band_data.append(clipped)
-            ress.append(res)
+        return clipped       
+
+    def _combine_bands(self, band_data, resolution, shp, bands):
         # check if all bands were found
         if len(band_data) != len(bands):
             raise RuntimeError("Length of band_data and bands do not match.")
         if all([ds is None for ds in band_data]):
-            warnings.warn(f'Item {item["assets"]["PRODUCT"]["alternate"]["s3"]["href"]} was not found.')
+            warnings.warn(f'Not all bands were downloaded.')
             return None
         if not all([ds is not None for ds in band_data]):
-            raise RuntimeError("Some bands were not found.")
+            raise RuntimeError("Bands were not downloaded.")
 
         # resample if needed
         band_data = self._align_resolutions(band_data, resolution, shp)
@@ -249,11 +238,12 @@ class CDSE(Base):
             if 'band' in ds.dims:
                 if len(ds.band) > 1:
                     band_data[i] = band_data[i].to_dataset(dim="band")
-                    band_data[i] = band_data[i].rename({old: f"{band}_{old}" for old in band_data[i].data_vars})
+                    band_data[i] = band_data[i].rename({old: f"{bands[i]}_{old}" for old in band_data[i].data_vars})
                 else:
                     band_data[i] = band_data[i].drop_vars('band').squeeze('band')
                     band_data[i] = band_data[i].to_dataset(name=bands[i])
         ds = xr.combine_by_coords(band_data)
+
         return ds
 
     def _align_coords(self, datasets, shp):
@@ -306,7 +296,7 @@ class CDSE(Base):
             dir_path=str(f_path.parent),
             aws_access_key_id=self.credentials['aws_access_key_id'],
             aws_secret_access_key=self.credentials['aws_secret_access_key'],
-            endpoint_url='https://eodata.dataspace.copernicus.eu'
+            endpoint_url=self.end_point_url
         )
 
         with fs.open(str(f_path.name), 'rb') as remote_file:
@@ -340,7 +330,7 @@ class CDSE(Base):
                 region_name='default'
             ).resource(
                 's3',
-                endpoint_url='https://eodata.dataspace.copernicus.eu'
+                endpoint_url=self.end_point_url
             )
 
         # extract item path
@@ -360,6 +350,7 @@ class CDSE(Base):
 
         # transform to Path object
         paths = [Path(obj.key) for obj in paths]
+
         # filter for band
         if band is not None and len(band) > 0:
             paths_new = [path for path in paths if band in path.name]
