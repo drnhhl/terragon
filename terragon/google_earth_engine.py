@@ -29,34 +29,34 @@ class GEE(Base):
 
     def search(self, rm_tmp_files=True, **kwargs):
         super().search(**kwargs)
-        self._parameters.update({'rm_tmp_files': rm_tmp_files})
+        self._parameters.update({"rm_tmp_files": rm_tmp_files})
 
-        img_col = ee.ImageCollection(self.param("collection"))
-        start_date = self.param("start_date")
-        end_date = self.param("end_date")
+        img_col = ee.ImageCollection(self._param("collection"))
+        start_date = self._param("start_date")
+        end_date = self._param("end_date")
         # end date is exclusive in GEE, make end_date inclusive
-        end_date = f"{end_date}T23:59:59.999" if not "T" in end_date else end_date
+        end_date = f"{end_date}T23:59:59.999" if "T" not in end_date else end_date
         if start_date and end_date:
             img_col = img_col.filterDate(start_date, end_date)
         elif start_date:
             img_col = img_col.filterDate(start_date)
         elif end_date:
             raise ValueError("In GEE end_date must be used with start_date.")
-        bands = self.param("bands")
+        bands = self._param("bands")
         if bands:
             img_col = img_col.select(bands)
 
         return img_col
 
-    def download(self, img_col, create_minicube=True):
-        shp_4326 = self._reproject_shp(self.param("shp"))
+    def download(self, img_col):
+        shp_4326 = self._reproject_shp(self._param("shp"))
 
         # reproject images
         img_col = img_col.map(
             lambda img: img.reproject(
-                crs=f"EPSG:{self.param('shp').crs.to_epsg()}",
+                crs=f"EPSG:{self._param('shp').crs.to_epsg()}",
                 crsTransform=None,
-                scale=self.param("resolution"),
+                scale=self._param("resolution"),
             )
         )
 
@@ -68,11 +68,11 @@ class GEE(Base):
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
         img_col = img_col.toList(col_size)
-        tmp_dir = self.param("download_folder", raise_error=not create_minicube)
+        tmp_dir = self._param("download_folder", raise_error=not self._param("create_minicube"))
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # iterate and download tifs
-        num_workers = self.param("num_workers")
+        num_workers = self._param("num_workers")
         if num_workers > 40:
             warnings.warn(
                 f"{num_workers} workers is most likely too high. \
@@ -81,16 +81,16 @@ class GEE(Base):
             num_workers = 40
         fns = Parallel(n_jobs=num_workers, backend="threading")(
             delayed(self._download_img)(
-                img_col, i, tmp_dir, self.param("shp"), self.param("resolution")
+                img_col, i, tmp_dir, self._param("shp"), self._param("resolution")
             )
             for i in range(col_size)
         )
 
-        if not create_minicube:
+        if not self._param("create_minicube"):
             return fns
         ds = self._merge_gee_tifs(fns)
         # remove the temp files
-        if self.param('rm_tmp_files'):
+        if self._param("rm_tmp_files"):
             rm_files(fns)
 
         ds = self._prepare_cube(ds)
@@ -132,8 +132,8 @@ class GEE(Base):
         if len(fns) < 1:
             raise ValueError("No files provided to merge.")
         date_pattern = r"\d{8}"
-        shp = self.param("shp")
-        resolution = self.param("resolution")
+        shp = self._param("shp")
+        resolution = self._param("resolution")
 
         def load_tif(fn):
             da = rxr.open_rasterio(fn)
@@ -144,7 +144,7 @@ class GEE(Base):
             da = da.assign_coords(time=pd.to_datetime(time_str, format="%Y%m%d"))
             return da
 
-        out = Parallel(n_jobs=self.get_param("num_workers"), backend="threading")(
+        out = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
             delayed(load_tif)(fn) for fn in fns
         )
 

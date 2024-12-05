@@ -1,88 +1,21 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import geopandas as gpd
 
 
 class Base(ABC):
-    base_url = None
+    _base_url = None
     _parameters = {}
 
     @abstractmethod
-    def __init__(
-        self,
-    ):
+    def __init__(self):
         pass
 
     def create(self, **kwargs):
         """Execute search and download within one command."""
         items = self.search(**kwargs)
         return self.download(items)
-
-    def param(self, name, **kwargs):
-        """Return a standard parameter from the class with predefined settings."""
-        dic = {
-            "shp": (
-                self.get_param("shp", raise_error=True)
-                if not kwargs
-                else self.get_param("shp", **kwargs)
-            ),
-            "collection": (
-                self.get_param("collection", raise_error=True)
-                if not kwargs
-                else self.get_param("collection", **kwargs)
-            ),
-            "bands": (
-                self.get_param("bands", [])
-                if not kwargs
-                else self.get_param("bands", **kwargs)
-            ),
-            "start_date": (
-                self.get_param("start_date", None)
-                if not kwargs
-                else self.get_param("start_date", **kwargs)
-            ),
-            "end_date": (
-                self.get_param("end_date", None)
-                if not kwargs
-                else self.get_param("end_date", **kwargs)
-            ),
-            "resolution": (
-                self.get_param("resolution", None)
-                if not kwargs
-                else self.get_param("resolution", **kwargs)
-            ),
-            "clip_to_shp": (
-                self.get_param("clip_to_shp", True)
-                if not kwargs
-                else self.get_param("clip_to_shp", **kwargs)
-            ),
-            "download_folder": (
-                self.get_param("download_folder", Path("./eo_download/"))
-                if not kwargs
-                else self.get_param("download_folder", **kwargs)
-            ),
-            "num_workers": (
-                self.get_param("num_workers", 1)
-                if not kwargs
-                else self.get_param("num_workers", **kwargs)
-            ),
-        }
-
-        if name in dic:
-            return dic[name]
-        else:
-            return self.get_param(name)
-
-    def get_param(self, name, default=None, raise_error=False):
-        """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""
-        if raise_error and (
-            name not in self._parameters.keys() or self._parameters[name] is None or \
-                (isinstance(self._parameters[name], (list, tuple, set, dict)) and not self._parameters[name])
-        ):
-            raise ValueError(
-                f"Parameter '{name}' was not set, but is required for this operation."
-            )
-        return self._parameters.get(name, default)
 
     @abstractmethod
     def retrieve_collections(
@@ -94,14 +27,15 @@ class Base(ABC):
         self,
         shp: gpd.GeoDataFrame,
         collection: str,
-        bands: list = None,
+        bands: list[str] = None,
         start_date: str = None,
         end_date: str = None,
-        resolution=None,
+        resolution: float = None,
         filter: dict = None,
         clip_to_shp: bool = True,
-        download_folder: str = None,
+        download_folder: str = "./eo_download/",
         num_workers: int = 1,
+        create_minicube: bool = True,
     ):
         """Take all arguments and store them."""
         # create a union of a dataframe of more than one shape in shp
@@ -119,7 +53,7 @@ class Base(ABC):
                 "resolution": resolution,
                 "filter": filter,
                 "clip_to_shp": clip_to_shp,
-                "download_folder": download_folder,
+                "download_folder": Path(download_folder),
                 "num_workers": num_workers,
             }
         )
@@ -127,6 +61,81 @@ class Base(ABC):
     @abstractmethod
     def download(self, items, create_minicube=True):
         pass
+
+    def _param(self, name, **kwargs):
+        """Return a standard parameter from the class with predefined settings."""
+        dic = {
+            "shp": (
+                self._get_param("shp", raise_error=True)
+                if not kwargs
+                else self._get_param("shp", **kwargs)
+            ),
+            "collection": (
+                self._get_param("collection", raise_error=True)
+                if not kwargs
+                else self._get_param("collection", **kwargs)
+            ),
+            "bands": (
+                self._get_param("bands", [])
+                if not kwargs
+                else self._get_param("bands", **kwargs)
+            ),
+            "start_date": (
+                self._get_param("start_date", None)
+                if not kwargs
+                else self._get_param("start_date", **kwargs)
+            ),
+            "end_date": (
+                self._get_param("end_date", None)
+                if not kwargs
+                else self._get_param("end_date", **kwargs)
+            ),
+            "resolution": (
+                self._get_param("resolution", None)
+                if not kwargs
+                else self._get_param("resolution", **kwargs)
+            ),
+            "clip_to_shp": (
+                self._get_param("clip_to_shp", True)
+                if not kwargs
+                else self._get_param("clip_to_shp", **kwargs)
+            ),
+            "download_folder": (
+                self._get_param("download_folder", Path("./eo_download/"))
+                if not kwargs
+                else self._get_param("download_folder", **kwargs)
+            ),
+            "num_workers": (
+                self._get_param("num_workers", 1)
+                if not kwargs
+                else self._get_param("num_workers", **kwargs)
+            ),
+            "create_minicube": (
+                self._get_param("create_minicube", True)
+                if not kwargs
+                else self._get_param("create_minicube", **kwargs)
+            ),
+        }
+
+        if name in dic:
+            return dic[name]
+        else:
+            return self._get_param(name)
+
+    def _get_param(self, name, default=None, raise_error=False):
+        """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""
+        if raise_error and (
+            name not in self._parameters.keys()
+            or self._parameters[name] is None
+            or (
+                isinstance(self._parameters[name], (list, tuple, set, dict))
+                and not self._parameters[name]
+            )
+        ):
+            raise ValueError(
+                f"Parameter '{name}' was not set, but is required for this operation."
+            )
+        return self._parameters.get(name, default)
 
     def _reproject_shp(self, shp, epsg="EPSG:4326"):
         """reproject shp to EPSG:4326."""
@@ -137,10 +146,8 @@ class Base(ABC):
     def _prepare_cube(self, ds):
         """rename, reorder, and remove/add attributes to the dataset."""
         # clip extend to the exact shape
-        if self.param(
-            "clip_to_shp"
-        ):  # TODO gives warning for gee: /mnt/SSD1/adrian/miniconda3/envs/v1/lib/python3.10/site-packages/xarray/core/duck_array_ops.py:215: RuntimeWarning: invalid value encountered in cast return data.astype(dtype, **kwargs)
-            ds = ds.rio.clip(self.param("shp").geometry)
+        if self._param("clip_to_shp"):
+            ds = ds.rio.clip(self._param("shp").geometry)
 
         # delete the attrs
         ds.attrs = {}
@@ -164,7 +171,7 @@ class Base(ABC):
         ds.attrs = {
             "crs": ds.rio.crs.to_string(),
             "data_source": self.__class__.__name__,
-            "collection": self.param("collection"),
+            "collection": self._param("collection"),
         }
 
         return ds

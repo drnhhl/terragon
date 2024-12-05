@@ -39,8 +39,8 @@ class _TestBase:
         )
 
     def test_download_tifs(self):
-        items = self.tg.search(**self.arguments)
-        fns = self.tg.download(items, create_minicube=False)
+        items = self.tg.search(**self.arguments, create_minicube=False)
+        fns = self.tg.download(items)
         self.assertTrue(len(fns) > 0)
         for fn in fns:
             self.assertTrue(fn.exists())
