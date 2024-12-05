@@ -144,7 +144,7 @@ class GEE(Base):
             da = da.assign_coords(time=pd.to_datetime(time_str, format="%Y%m%d"))
             return da
 
-        out = Parallel(n_jobs=self.get_param("num_workers"))(
+        out = Parallel(n_jobs=self.get_param("num_workers"), backend="threading")(
             delayed(load_tif)(fn) for fn in fns
         )
 

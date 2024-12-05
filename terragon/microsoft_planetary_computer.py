@@ -96,7 +96,7 @@ class PC(Base):
                 for band in bands
             ]
             urls = [item.assets[band].href for item in items for band in bands]
-            Parallel(n_jobs=self.param("num_workers"))(
+            Parallel(n_jobs=self.param("num_workers"), backend="threading")(
                 delayed(self._download_file)(url, fn) for url, fn in zip(urls, fns)
             )
             return fns
