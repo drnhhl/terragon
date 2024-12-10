@@ -18,7 +18,7 @@ class _TestBase:
             resolution=10,
             download_folder="tests/download/",
         )
-        self.width, self.height, self.nr_time_steps = 40, 16, 2
+        self.width, self.height, self.nr_time_steps = 42, 18, 2
 
     def test_collections(self):
         col = self.tg.retrieve_collections("sentinel")
@@ -60,7 +60,7 @@ class _TestBase:
         args["shp"] = args["shp"].to_crs("EPSG:32632")
         args["resolution"] = 10  # 10m resolution
         ds = self.tg.create(**args)
-        width, height = 27, 18
+        width, height = 28, 18
         self.assertTrue(
             len(ds.time) == self.nr_time_steps
             and len(ds.x) == width
@@ -73,7 +73,7 @@ class _TestBase:
         args["shp"] = args["shp"].to_crs("EPSG:32632")
         args["resolution"] = 20
         ds = self.tg.create(**args)
-        width, height = 13, 8
+        width, height = 15, 10
         self.assertTrue(
             len(ds.time) == self.nr_time_steps
             and len(ds.x) == width

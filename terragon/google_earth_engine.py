@@ -68,7 +68,9 @@ class GEE(Base):
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
         img_col = img_col.toList(col_size)
-        tmp_dir = self._param("download_folder", raise_error=not self._param("create_minicube"))
+        tmp_dir = self._param(
+            "download_folder", raise_error=not self._param("create_minicube")
+        )
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # iterate and download tifs

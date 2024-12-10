@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import geopandas as gpd
+import rioxarray as rxr  # noqa: F401 # rioxarray needed for .rio accessor
 
 
 class Base(ABC):
@@ -55,6 +56,7 @@ class Base(ABC):
                 "clip_to_shp": clip_to_shp,
                 "download_folder": Path(download_folder),
                 "num_workers": num_workers,
+                "create_minicube": create_minicube,
             }
         )
 
@@ -147,7 +149,7 @@ class Base(ABC):
         """rename, reorder, and remove/add attributes to the dataset."""
         # clip extend to the exact shape
         if self._param("clip_to_shp"):
-            ds = ds.rio.clip(self._param("shp").geometry)
+            ds = ds.rio.clip(self._param("shp").geometry, all_touched=True)
 
         # delete the attrs
         ds.attrs = {}
