@@ -6,7 +6,6 @@
 .. include:: ../README.md
    :parser: myst_parser.sphinx_
 
-
 .. toctree::
    :hidden:
    :maxdepth: 0
@@ -20,14 +19,16 @@
 .. toctree::
    :hidden:
    :maxdepth: 0
-
-   source/changelog
-
-.. toctree::
-   :hidden:
-   :maxdepth: 0
    :caption: Examples:
 
    demo_files/terragon_workflow
    demo_files/demo_gee
    demo_files/demo_pc
+
+.. toctree::
+   :hidden:
+   :maxdepth: 0
+   :caption: Project Information:
+
+   source/changelog
+   source/contributing
