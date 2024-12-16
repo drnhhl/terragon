@@ -10,7 +10,7 @@ class _TestBase:
         """set up the basic parameters for the tests.
         arguments collection, bands, etc. need to be defined in the child class."""
         super().setUp()
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
+        self.gdf = gpd.read_file(Path("docs/demo_files/data/TUM_OTN.geojson"))
         self.arguments = dict(
             shp=self.gdf,
             start_date="2021-01-01",
