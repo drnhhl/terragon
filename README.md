@@ -6,6 +6,17 @@
     <em>Terragon - Earth(Poly)gon. Create EO Minicubes from Polygons and simplify EO Data downloading.</em>
 </p>
 <p align="center">
+    <a href='https://terragon.readthedocs.io/en/latest/?badge=latest'>
+        <img src='https://img.shields.io/badge/Readthedocs-%23000000.svg?style=for-the-badge&logo=readthedocs&logoColor=white' alt='Documentation' />
+    </a>
+    <a href="https://github.com/drnhhl/terragon" target="_blank">
+        <img src="https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white" alt="GitHub">
+    </a>
+</p>
+<p align="center">
+    <a href='https://pypi.python.org/pypi/terragon-downloader'>
+        <img src='https://img.shields.io/pypi/v/terragon-downloader.svg' alt='PyPI' />
+    </a>
     <a href="https://opensource.org/licenses/MIT" target="_blank">
         <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
     </a>
@@ -59,7 +70,7 @@ da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the
                resolution=20, # pixel size in meter
                )
 ```
-Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/demo_files).
+Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/docs/demo_files).
 
 ## Limitations
 Be aware that depending on the collection the data is not mosaicked.

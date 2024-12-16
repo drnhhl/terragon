@@ -1,4 +1,4 @@
-def init(api:str, credentials:dict=None, **kwargs) -> object:
+def init(api: str, credentials: dict = None, **kwargs) -> object:
     """instantiate a new data source object.
 
     :param api: name of the API to use

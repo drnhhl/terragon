@@ -62,9 +62,7 @@ class _TestBase:
         ds = self.tg.create(**args)
         width, height = 28, 18
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps
-            and len(ds.x) == width
-            and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
         )
 
     def test_resolution(self):
@@ -75,9 +73,7 @@ class _TestBase:
         ds = self.tg.create(**args)
         width, height = 15, 10
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps
-            and len(ds.x) == width
-            and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
         )
 
     def test_fail_on_missing_params(self):

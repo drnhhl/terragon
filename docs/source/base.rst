@@ -1,5 +1,5 @@
 Base class
 ==========
 .. autoclass:: terragon.base.Base
-   :members: search, create
+   :members: search, create, download
    :show-inheritance:

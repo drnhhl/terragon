@@ -12,16 +12,16 @@
    :maxdepth: 0
    :caption: API References:
    
-   init
-   base
-   gee
-   pc
+   source/init
+   source/base
+   source/gee
+   source/pc
 
 .. toctree::
    :hidden:
    :maxdepth: 0
 
-   changelog
+   source/changelog
 
 .. toctree::
    :hidden:
