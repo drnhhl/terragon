@@ -5,7 +5,7 @@ import pkg_resources
 
 sys.path.insert(0, os.path.abspath(".."))  # Source code dir relative to this file
 
-import terragon
+import terragon  # noqa: E402
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
