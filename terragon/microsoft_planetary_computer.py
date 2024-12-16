@@ -1,3 +1,4 @@
+import shutil
 from urllib.parse import urljoin
 
 import odc.stac
@@ -17,12 +18,14 @@ class PC(Base):
         base_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1/",
     ):
         super().__init__()
-        self.base_url = base_url
+        self._base_url = base_url
         if credentials:
+            if "api_key" not in credentials:
+                raise ValueError("api_key not in credentials, could not initialize PC.")
             pc.set_subscription_key(credentials["api_key"])
 
     def retrieve_collections(self, filter_by_name: str = None):
-        collections_url = urljoin(self.base_url, "collections")
+        collections_url = urljoin(self._base_url, "collections")
         response = requests.get(collections_url)
 
         if response.status_code == 200:
@@ -40,21 +43,21 @@ class PC(Base):
 
     def search(self, **kwargs):
         super().search(**kwargs)
-        bounds_4326 = self._reproject_shp(self.param("shp")).total_bounds
+        bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
 
         catalog = pystac_client.Client.open(
-            self.base_url,
+            self._base_url,
             modifier=pc.sign_inplace,
         )
 
-        start_date = self.param("start_date")
-        end_date = self.param("end_date")
+        start_date = self._param("start_date")
+        end_date = self._param("end_date")
         datetime = f"{start_date}/{end_date}" if start_date and end_date else None
         search = catalog.search(
-            collections=self.param("collection"),
+            collections=self._param("collection"),
             bbox=bounds_4326,
             datetime=datetime,
-            query=self.param("filter"),
+            query=self._param("filter"),
         )
 
         items = search.item_collection()
@@ -62,38 +65,55 @@ class PC(Base):
             raise ValueError("No items found")
         return items
 
-    def download(self, items=None, create_minicube=True):
+    def download(self, items):
         assert len(items) > 0, "No images to download."
 
-        shp = self.param("shp")
+        shp = self._param("shp")
         bounds = list(shp.bounds.values[0])
-        res = meters_to_crs_unit(self.param("resolution"), shp)
+        res = meters_to_crs_unit(self._param("resolution"), shp)
 
-        if create_minicube:
+        if self._param("create_minicube"):
             ds = odc.stac.load(
                 items,
-                bands=self.param("bands"),
+                bands=self._param("bands"),
                 crs=shp.crs,
                 resolution=res,
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3]),
             )
-            ds = self.prepare_cube(ds)
+            ds = self._prepare_cube(ds)
             return ds
         else:
-            bands = self.param("bands")
+            bands = self._param("bands")
             if bands is None:
                 bands = items[0].assets.keys()
-            self.param("download_folder").mkdir(parents=True, exist_ok=True)
+            self._param("download_folder").mkdir(parents=True, exist_ok=True)
             fns = [
-                self.param("download_folder").joinpath(
-                    f"{self.param('collection')}_{band}_{item.id}.tif"
+                self._param("download_folder").joinpath(
+                    f"{self._param('collection')}_{band}_{item.id}.tif"
                 )
                 for item in items
                 for band in bands
             ]
             urls = [item.assets[band].href for item in items for band in bands]
-            Parallel(n_jobs=self.param("num_workers"))(
-                delayed(self.download_file)(url, fn) for url, fn in zip(urls, fns)
+            Parallel(n_jobs=self._param("num_workers"), backend="threading")(
+                delayed(self._download_file)(url, fn) for url, fn in zip(urls, fns)
             )
             return fns
+
+    def _download_file(self, url, fn):
+        """download a file from a url into fn."""
+        if fn.exists():
+            return
+        response = requests.get(url, stream=True)
+        if response.status_code != 200:
+            raise RuntimeError(f"Url {url} response code: {response.status_code}.")
+        try:  # download the file
+            with open(fn, "wb") as f:
+                shutil.copyfileobj(response.raw, f)
+        except Exception as e:
+            if fn.exists():
+                fn.unlink()
+            raise RuntimeError(f"Failed to download {url} with error {e}")
+        finally:
+            response.close()

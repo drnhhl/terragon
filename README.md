@@ -61,6 +61,9 @@ da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the
 ```
 Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/demo_files).
 
+## Limitations
+Be aware that depending on the collection the data is not mosaicked.
+
 ## Contribute
 You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
 
@@ -68,7 +71,7 @@ You found a bug or a data source is missing? We encourage you to raise an issue 
 This work is licensed under the MIT license.
 
 ## Citation
-If you use this work, please consider citing the following paper:
+If you use this work, please consider citing the following paper: Coming soon.
 
 ## Acknowledgement
 This work is inspired by [cubo](https://github.com/ESDS-Leipzig/cubo)
