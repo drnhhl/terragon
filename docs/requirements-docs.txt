@@ -1,0 +1,6 @@
+# requirements to create the docs with sphinx
+sphinx
+nbsphinx
+sphinx-rtd-theme
+myst-parser
+sphinx-autodoc-typehints
