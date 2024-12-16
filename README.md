@@ -75,6 +75,9 @@ Other data backends work with the same principle, check out the [Demos](https://
 ## Limitations
 Be aware that depending on the collection the data is not mosaicked.
 
+## Limitations
+Be aware that depending on the collection the data is not mosaicked.
+
 ## Contribute
 You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
 
