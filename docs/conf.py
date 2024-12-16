@@ -5,7 +5,7 @@ import pkg_resources
 
 sys.path.insert(0, os.path.abspath(".."))  # Source code dir relative to this file
 
-import terragon  # noqa F401
+import terragon
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -20,7 +20,7 @@ templates_path = ["_templates"]
 project = "terragon"
 copyright = "2024, Adrian Höhl"
 author = "Adrian Höhl"
-release = '0.0.1'
+version = terragon.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
