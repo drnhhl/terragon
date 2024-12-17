@@ -1,10 +1,12 @@
 import shutil
+from typing import Union
 from urllib.parse import urljoin
 
 import odc.stac
 import planetary_computer as pc
 import pystac_client
 import requests
+import xarray as xr
 from joblib import Parallel, delayed
 
 from .base import Base
@@ -12,11 +14,24 @@ from .utils import meters_to_crs_unit
 
 
 class PC(Base):
+    """The class for Microsoft Planetary Computer downloads. The package odc-stac will be used to download the images.
+
+    :param Base: Base class defining the interface and some common methods
+    :param credentials: credentials to authenticate, expected format: {'api_key': <key>}, defaults to None
+    :param base_url: the URL for the STAC catalog, defaults to "https://planetarycomputer.microsoft.com/api/stac/v1/"
+    """
+
     def __init__(
         self,
         credentials: dict = None,
         base_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1/",
-    ):
+    ) -> None:
+        """Initialize class and planetary computer, if credentials are provided.
+
+        :param credentials: credentials to authenticate, expected format: {'api_key': <key>}, defaults to None
+        :param base_url: the URL for the STAC catalog, defaults to "https://planetarycomputer.microsoft.com/api/stac/v1/"
+        :raises ValueError: when the credentials are in the wrong format
+        """
         super().__init__()
         self._base_url = base_url
         if credentials:
@@ -24,7 +39,13 @@ class PC(Base):
                 raise ValueError("api_key not in credentials, could not initialize PC.")
             pc.set_subscription_key(credentials["api_key"])
 
-    def retrieve_collections(self, filter_by_name: str = None):
+    def retrieve_collections(self, filter_by_name: str = None) -> list:
+        """Search the collections provided by the Planetary Computer.
+
+        :param filter_by_name: name to filter the collections for, defaults to None
+        :raises RuntimeError: if the request to the collections endpoint fails
+        :return: a list of collection names
+        """
         collections_url = urljoin(self._base_url, "collections")
         response = requests.get(collections_url)
 
@@ -33,15 +54,18 @@ class PC(Base):
             collections = [collection["id"] for collection in data["collections"]]
             if filter_by_name:
                 collections = [
-                    collection
-                    for collection in collections
-                    if filter_by_name in collection.lower()
+                    collection for collection in collections if filter_by_name in collection.lower()
                 ]
             return collections
         else:
             raise RuntimeError("Failed to retrieve collections")
 
     def search(self, **kwargs):
+        """Search for items in the Planetary Computer collections. For a description of the kwargs parameters see the Base class function.
+
+        :raises ValueError: when no items are found or parameters are in the wrong format
+        :return: a list of items
+        """
         super().search(**kwargs)
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
 
@@ -65,7 +89,12 @@ class PC(Base):
             raise ValueError("No items found")
         return items
 
-    def download(self, items):
+    def download(self, items) -> Union[xr.Dataset, list]:
+        """Download the items from the Planetary Computer as xr.Dataset or download the files.
+
+        :param items: items to download
+        :return: xarray.Dataset or list of filenames
+        """
         assert len(items) > 0, "No images to download."
 
         shp = self._param("shp")

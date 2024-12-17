@@ -10,7 +10,7 @@ class _TestBase:
         """set up the basic parameters for the tests.
         arguments collection, bands, etc. need to be defined in the child class."""
         super().setUp()
-        self.gdf = gpd.read_file(Path("demo_files/data/TUM_OTN.geojson"))
+        self.gdf = gpd.read_file(Path("docs/demo_files/data/TUM_OTN.geojson"))
         self.arguments = dict(
             shp=self.gdf,
             start_date="2021-01-01",
@@ -62,9 +62,7 @@ class _TestBase:
         ds = self.tg.create(**args)
         width, height = 28, 18
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps
-            and len(ds.x) == width
-            and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
         )
 
     def test_resolution(self):
@@ -75,9 +73,7 @@ class _TestBase:
         ds = self.tg.create(**args)
         width, height = 15, 10
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps
-            and len(ds.x) == width
-            and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
         )
 
     def test_fail_on_missing_params(self):
