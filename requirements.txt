@@ -1,0 +1,14 @@
+# requirements for all data providers
+geopandas
+rioxarray
+joblib
+requests
+# tools
+jupyter
+# pc
+planetary-computer
+odc-stac
+pystac-client
+# gee
+earthengine-api
+geedim

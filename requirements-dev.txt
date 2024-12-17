@@ -1,0 +1,4 @@
+# development dependencies
+flake8
+isort
+black[jupyter]

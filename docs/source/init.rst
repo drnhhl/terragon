@@ -1,0 +1,3 @@
+Initialization
+==============
+.. autofunction:: terragon.init

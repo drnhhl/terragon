@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 import warnings
+from typing import List, Union
 
 import ee
 import geedim
@@ -15,19 +16,42 @@ from .utils import meters_to_crs_unit, rm_files
 
 
 class GEE(Base):
-    def __init__(self, credentials: dict = None):
+    """The class for Google Earth Engine downloads. The package geedim will be used to download the images
+    and they are stored intermedialtly in .tif format.
+
+    :param Base: Base class defining the interface and some common methods
+    :param credentials: unused, kept for compatibility, defaults to None
+    """
+
+    def __init__(self, credentials: dict = None) -> None:
+        """Initialize class and GEE.
+
+        :param credentials: unused, kept for compatibility, defaults to None
+        :raises RuntimeError: when GEE is not initialized with ee.Authenticate() and ee.Initialize(project='my-project')
+        """
         super().__init__()
         if not ee.data._credentials:
             raise RuntimeError(
                 "GEE not initialized. Did you run 'ee.Authenticate()' and ee.Initialize(project='my-project')?"
             )
 
-    def retrieve_collections(self, filter_by_name: str = None):
+    def retrieve_collections(self, filter_by_name: str = None) -> None:
+        """Not implemented, because GEE does not have a collection endpoint.
+
+        :param filter_by_name: unused, kept for compatibility, defaults to None
+        :raises NotImplementedError: GEE does not have a collection endpoint
+        """
         raise NotImplementedError(
             "GEE does not have a collection endpoint. Please, visit https://developers.google.com/earth-engine/datasets/catalog"
         )
 
-    def search(self, rm_tmp_files=True, **kwargs):
+    def search(self, rm_tmp_files=True, **kwargs) -> ee.ImageCollection:
+        """Search for items in the GEE collections. For a description of the kwargs parameters see the Base class function.
+
+        :param rm_tmp_files: remove temporarily downloaded files after creating the minicube, defaults to True
+        :raises ValueError: when parameters are missing or in the wrong format
+        :return: ee.ImageCollection
+        """
         super().search(**kwargs)
         self._parameters.update({"rm_tmp_files": rm_tmp_files})
 
@@ -48,7 +72,12 @@ class GEE(Base):
 
         return img_col
 
-    def download(self, img_col):
+    def download(self, img_col: ee.ImageCollection) -> Union[xr.Dataset, List]:
+        """Download the clipped images from the GEE ImageCollection, store them as temporary .tif files and create a minicube.
+
+        :param img_col: ee.ImageCollection to download
+        :return: xarray.Dataset or list of filenames
+        """
         shp_4326 = self._reproject_shp(self._param("shp"))
 
         # reproject images
@@ -68,9 +97,7 @@ class GEE(Base):
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
         img_col = img_col.toList(col_size)
-        tmp_dir = self._param(
-            "download_folder", raise_error=not self._param("create_minicube")
-        )
+        tmp_dir = self._param("download_folder", raise_error=not self._param("create_minicube"))
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # iterate and download tifs
@@ -99,6 +126,7 @@ class GEE(Base):
         return ds
 
     def _download_img(self, img_col, i, tmp_dir, shp, resolution):
+        """Download a single image from the GEE ImageCollection."""
         img = ee.Image(img_col.get(i))
         # get the system id
         id_prop = next(
@@ -129,8 +157,8 @@ class GEE(Base):
             )
         return fileName
 
-    def _merge_gee_tifs(self, fns):
-        """merge the tifs and crop the to the shp"""
+    def _merge_gee_tifs(self, fns) -> xr.Dataset:
+        """merge the tifs and crop them to the shp"""
         if len(fns) < 1:
             raise ValueError("No files provided to merge.")
         date_pattern = r"\d{8}"

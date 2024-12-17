@@ -1,11 +1,18 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import List
 
 import geopandas as gpd
 import rioxarray as rxr  # noqa: F401 # rioxarray needed for .rio accessor
 
 
 class Base(ABC):
+    """Abstract base class for all EO data providers.
+
+    :param ABC: abstract base class
+    :raises ValueError: when there are missing parameters
+    """
+
     _base_url = None
     _parameters = {}
 
@@ -14,7 +21,8 @@ class Base(ABC):
         pass
 
     def create(self, **kwargs):
-        """Execute search and download within one command."""
+        """Execute search and download within one command.
+        For explanation of parameters see search function."""
         items = self.search(**kwargs)
         return self.download(items)
 
@@ -28,7 +36,7 @@ class Base(ABC):
         self,
         shp: gpd.GeoDataFrame,
         collection: str,
-        bands: list[str] = None,
+        bands: List[str] = None,
         start_date: str = None,
         end_date: str = None,
         resolution: float = None,
@@ -38,7 +46,20 @@ class Base(ABC):
         num_workers: int = 1,
         create_minicube: bool = True,
     ):
-        """Take all arguments and store them."""
+        """Search for items in the backend (This abstract function only takes all arguments and stores them).
+
+        :param shp: the shape of the area of interest, the output will be reprojected to the shape crs
+        :param collection: collection name
+        :param bands: band names to download, defaults to None
+        :param start_date: the first date of the time series of interest, defaults to None
+        :param end_date: the last date of the time series of interest (if there is no time in the date it defaults to include the end_date), defaults to None
+        :param resolution: resolution of the output in meters, defaults to None
+        :param filter: filters applied to the meta data in format: {'<meta-var-name>': {<filter-matching>:<value>}, ...}, defaults to None
+        :param clip_to_shp: if True set pixels outside of the shape to nan (using rio.clip), else clip to bounding box, defaults to True
+        :param download_folder: the folder to download files (also temporary files), defaults to "./eo_download/"
+        :param num_workers: the number of workers in parallel to use for downloading, defaults to 1
+        :param create_minicube: if True return a xarray.Dataset, otherwise return the downloaded filenames, defaults to True
+        """
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
             shp = gpd.GeoDataFrame(geometry=[shp.unary_union], crs=shp.crs)
@@ -61,10 +82,15 @@ class Base(ABC):
         )
 
     @abstractmethod
-    def download(self, items, create_minicube=True):
+    def download(self, items: List[object]):
+        """Download the given items.
+
+        :param items: list of items to download, the item type is specific to the backend
+        :return: xarray.Dataset or list of filenames
+        """
         pass
 
-    def _param(self, name, **kwargs):
+    def _param(self, name: str, **kwargs):
         """Return a standard parameter from the class with predefined settings."""
         dic = {
             "shp": (
@@ -78,9 +104,7 @@ class Base(ABC):
                 else self._get_param("collection", **kwargs)
             ),
             "bands": (
-                self._get_param("bands", [])
-                if not kwargs
-                else self._get_param("bands", **kwargs)
+                self._get_param("bands", []) if not kwargs else self._get_param("bands", **kwargs)
             ),
             "start_date": (
                 self._get_param("start_date", None)
@@ -124,7 +148,7 @@ class Base(ABC):
         else:
             return self._get_param(name)
 
-    def _get_param(self, name, default=None, raise_error=False):
+    def _get_param(self, name: str, default=None, raise_error=False):
         """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""
         if raise_error and (
             name not in self._parameters.keys()
@@ -134,9 +158,7 @@ class Base(ABC):
                 and not self._parameters[name]
             )
         ):
-            raise ValueError(
-                f"Parameter '{name}' was not set, but is required for this operation."
-            )
+            raise ValueError(f"Parameter '{name}' was not set, but is required for this operation.")
         return self._parameters.get(name, default)
 
     def _reproject_shp(self, shp, epsg="EPSG:4326"):
