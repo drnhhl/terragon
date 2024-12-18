@@ -7,7 +7,6 @@ from joblib import Parallel, delayed
 import xarray as xr
 import rioxarray as rxr
 import rasterio
-from fs_s3fs import S3FS
 import boto3
 import re
 import geopandas as gpd
@@ -18,13 +17,13 @@ from shapely.geometry import Polygon, box
 import warnings
 from rioxarray.rioxarray import _make_coords
 import itertools
-
+from urllib.parse import urlparse
 supported_collections = ['COP-DEM','GLOBAL-MOSAICS','LANDSAT-5','LANDSAT-7','LANDSAT-8-ESA','TERRAAQUA','S2GLC','SENTINEL-1','SENTINEL-1-RTC','SENTINEL-2']
 
 class CDSE(Base):
     """Class to interact with the Copernicus Data Space Ecosystem."""
     f"""currently only {supported_collections} are supported."""
-    s3 = None # object storing the s3 session
+    _s3 = None # object storing the s3 session
 
     def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/", end_point_url:str="https://eodata.dataspace.copernicus.eu"):
         super().__init__()
@@ -290,18 +289,14 @@ class CDSE(Base):
 
     def _download_file_rasterio(self, f_path, shp):
         """Download a band of an item and clip it to the shapefile."""
-
-        fs = S3FS(
-            bucket_name="eodata",
-            dir_path=str(f_path.parent),
+        session = rasterio.session.AWSSession(
+            aws_unsigned=False,
+            endpoint_url=urlparse(self.end_point_url).netloc if '://' in self.end_point_url else self.end_point_url,
             aws_access_key_id=self.credentials['aws_access_key_id'],
             aws_secret_access_key=self.credentials['aws_secret_access_key'],
-            endpoint_url=self.end_point_url
         )
-
-        with fs.open(str(f_path.name), 'rb') as remote_file:
-            # clip without downloading whole file
-            clipped = self._clip_to_region(remote_file, shp)
+        with rasterio.env.Env(session=session, AWS_VIRTUAL_HOSTING=False):
+            clipped = self._clip_to_region("s3://eodata/" + str(f_path), shp)
             return clipped
 
     def _download_file_tile(self, f_path, shp):
@@ -310,7 +305,7 @@ class CDSE(Base):
         download_path = self.param("download_folder") / f_path
         download_path.parent.mkdir(parents=True, exist_ok=True)
         if not download_path.exists():
-            self.s3.Bucket("eodata").download_file(str(f_path), download_path)
+            self._s3.Bucket("eodata").download_file(str(f_path), download_path)
 
         # clip to shp
         clipped = self._clip_to_region(download_path, shp)
@@ -323,8 +318,8 @@ class CDSE(Base):
 
     def _get_asset_path(self, item, band, resolution):
         # set up session to read file structure
-        if not self.s3:
-            self.s3 = boto3.Session(
+        if not self._s3:
+            self._s3 = boto3.Session(
                 aws_access_key_id=self.credentials['aws_access_key_id'],
                 aws_secret_access_key=self.credentials['aws_secret_access_key'],
                 region_name='default'
@@ -339,7 +334,7 @@ class CDSE(Base):
         except KeyError:
             raise RuntimeError("It seems that no s3 path exists for this item. Returned item: ", item)
         folder_name = '/'.join(s3_path.split('/')[2:]) 
-        response = self.s3.Bucket("eodata").objects.filter(Prefix=folder_name)
+        response = self._s3.Bucket("eodata").objects.filter(Prefix=folder_name)
 
         # filter for extension
         file_extensions = ['.jp2', '.tif', '.tiff', '.nc', '.dt2', '.dt1', '.img']
