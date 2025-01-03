@@ -92,61 +92,24 @@ class Base(ABC):
 
     def _param(self, name: str, **kwargs):
         """Return a standard parameter from the class with predefined settings."""
-        dic = {
-            "shp": (
-                self._get_param("shp", raise_error=True)
-                if not kwargs
-                else self._get_param("shp", **kwargs)
-            ),
-            "collection": (
-                self._get_param("collection", raise_error=True)
-                if not kwargs
-                else self._get_param("collection", **kwargs)
-            ),
-            "bands": (
-                self._get_param("bands", []) if not kwargs else self._get_param("bands", **kwargs)
-            ),
-            "start_date": (
-                self._get_param("start_date", None)
-                if not kwargs
-                else self._get_param("start_date", **kwargs)
-            ),
-            "end_date": (
-                self._get_param("end_date", None)
-                if not kwargs
-                else self._get_param("end_date", **kwargs)
-            ),
-            "resolution": (
-                self._get_param("resolution", None)
-                if not kwargs
-                else self._get_param("resolution", **kwargs)
-            ),
-            "clip_to_shp": (
-                self._get_param("clip_to_shp", True)
-                if not kwargs
-                else self._get_param("clip_to_shp", **kwargs)
-            ),
-            "download_folder": (
-                self._get_param("download_folder", Path("./eo_download/"))
-                if not kwargs
-                else self._get_param("download_folder", **kwargs)
-            ),
-            "num_workers": (
-                self._get_param("num_workers", 1)
-                if not kwargs
-                else self._get_param("num_workers", **kwargs)
-            ),
-            "create_minicube": (
-                self._get_param("create_minicube", True)
-                if not kwargs
-                else self._get_param("create_minicube", **kwargs)
-            ),
+        defaults = {
+            "shp": (None, True),
+            "collection": (None, True),
+            "bands": ([], False),
+            "start_date": (None, False),
+            "end_date": (None, False),
+            "resolution": (None, False),
+            "clip_to_shp": (True, False),
+            "download_folder": (Path("./eo_download/"), False),
+            "num_workers": (1, False),
+            "create_minicube": (True, False),
         }
 
-        if name in dic:
-            return dic[name]
+        if not kwargs and name in defaults:
+            default_value, raise_error = defaults.get(name)
+            return self._get_param(name, default_value, raise_error)
         else:
-            return self._get_param(name)
+            return self._get_param(name, **kwargs)
 
     def _get_param(self, name: str, default=None, raise_error=False):
         """Simplify returning a parameter from the class, possible to raise an error when it is not set or None"""

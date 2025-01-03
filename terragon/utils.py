@@ -32,7 +32,7 @@ def meters_to_crs_unit(meters, shp):
     # Convert the shape to UTM CRS where distances are in meters
     shp_utm = shp_to_utm_crs(shp)
     # reference point
-    point = shp_utm.geometry[0].centroid
+    point = shp_utm.geometry.iloc[0].centroid
     # offset point
     offset_point = Point(point.x, point.y + meters)
 
