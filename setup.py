@@ -16,6 +16,7 @@ EXTRAS_REQUIRE = {
         "odc-stac",
         "pystac-client",
     ],  # Optional dependency for pc
+    "cdse": ["boto3", "rasterio>=1.4.1"],  # Optional dependency for cdse
 }
 
 setup(

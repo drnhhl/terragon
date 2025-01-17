@@ -64,6 +64,8 @@ Other data backends work with the same principle, check out the [Demos](demo_fil
 ## Contribute
 You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
 
+We activily look for contributors to add more collections to CDSE. Please reach out if you are interested.
+
 ## License
 This work is licensed under the MIT license.
 
