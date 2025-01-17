@@ -24,8 +24,8 @@ supported_collections = ['COP-DEM','GLOBAL-MOSAICS','LANDSAT-5','LANDSAT-7','LAN
 class CDSE(Base):
     """Class to interact with the Copernicus Data Space Ecosystem."""
     f"""currently only {supported_collections} are supported."""
-    _s3 = None # object storing the s3 session
-
+    file_extensions = ['.jp2', '.tif', '.tiff', '.nc', '.dt2', '.dt1', '.img', '.JP2', '.TIF', '.TIFF', '.NC', '.DT2', '.DT1', '.IMG']
+    
     def __init__(self, credentials:dict=None, base_url:str="https://catalogue.dataspace.copernicus.eu/stac/", end_point_url:str="https://eodata.dataspace.copernicus.eu"):
         super().__init__()
         self.base_url = base_url
@@ -130,16 +130,16 @@ class CDSE(Base):
             ds = self.prepare_cube(ds)
             return ds
         else:
-            return self._download_to_files(items, self.param("shp"), self.param("collection"), self.param("bands", raise_error=True), self.param("resolution"), self.param("filter_asset_path"))
+            return self._download_to_files(items, self.param("shp"), self.param("collection"), self.param("bands", raise_error=True), self.param("resolution"), self.param("resampling"), self.param("filter_asset_path"), self.param("use_virtual_rasterio_file"))
 
-    def _download_to_files(self, items, shp, collection, band, resolution, filter_asset_path):
+    def _download_to_files(self, items, shp, collection, bands, resolution, resampling, filter_asset_path, use_virtual_rasterio_file):
         """Download all the items and return the file paths."""
-        fns = Parallel(n_jobs=self.param('num_workers'))(delayed(self._download_to_file)(item, shp, collection, band, resolution, filter_asset_path) for item, band in itertools.product(items, bands))
+        fns = Parallel(n_jobs=self.param('num_workers'))(delayed(self._download_to_file)(item, shp, collection, band, resolution, resampling, filter_asset_path, use_virtual_rasterio_file) for item, band in itertools.product(items, bands))
         # extract list of lists
         fns = [fn for sublist in fns for fn in sublist]
         return fns
 
-    def _download_to_file(self, item, shp, collection, band, resolution, filter_asset_path):
+    def _download_to_file(self, item, shp, collection, band, resolution, resampling, filter_asset_path, use_virtual_rasterio_file):
         """Download item to file."""
         f_paths = self._get_asset_path(item, collection, band, resolution, filter_asset_path)
         # replace extension to tif and collapse folders to name (there can be multiple files with the same name)
@@ -198,7 +198,7 @@ class CDSE(Base):
                 ds = ds.assign_coords(band=[f"{f_path.stem}_{old}" for old in ds.coords['band'].values])
                 datasets.append(ds)
             if len(datasets) > 1:
-                warnings.warn(f"Multiple files found for band {band}: {f_paths}.\nWill continue to add them as new bands.")
+                warnings.warn(f"Multiple files found for band {band}: {f_paths}.\nAdding them as new bands.")
                 if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]):
                     datasets = self._align_coords(datasets, shp, resampling)
                 if not all([ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]):
@@ -303,7 +303,16 @@ class CDSE(Base):
         download_path = self.param("download_folder") / f_path
         download_path.parent.mkdir(parents=True, exist_ok=True)
         if not download_path.exists():
-            self._s3.Bucket("eodata").download_file(str(f_path), download_path)
+            _s3 = boto3.Session(
+                aws_access_key_id=self.credentials['aws_access_key_id'],
+                aws_secret_access_key=self.credentials['aws_secret_access_key'],
+                region_name='default'
+            ).resource(
+                's3',
+                endpoint_url=self.end_point_url
+            )
+
+            _s3.Bucket("eodata").download_file(str(f_path), download_path)
 
         # clip to shp
         clipped = self._clip_to_region(download_path, shp, resampling)
@@ -316,15 +325,14 @@ class CDSE(Base):
 
     def _get_asset_path(self, item, collection, band, resolution, filter_asset_path):
         # set up session to read file structure
-        if not self._s3:
-            self._s3 = boto3.Session(
-                aws_access_key_id=self.credentials['aws_access_key_id'],
-                aws_secret_access_key=self.credentials['aws_secret_access_key'],
-                region_name='default'
-            ).resource(
-                's3',
-                endpoint_url=self.end_point_url
-            )
+        _s3 = boto3.Session(
+            aws_access_key_id=self.credentials['aws_access_key_id'],
+            aws_secret_access_key=self.credentials['aws_secret_access_key'],
+            region_name='default'
+        ).resource(
+            's3',
+            endpoint_url=self.end_point_url
+        )
 
         # extract item path
         try:
@@ -332,12 +340,10 @@ class CDSE(Base):
         except KeyError:
             raise RuntimeError("It seems that no s3 path exists for this item. Returned item: ", item)
         folder_name = '/'.join(s3_path.split('/')[2:]) 
-        response = self._s3.Bucket("eodata").objects.filter(Prefix=folder_name)
+        response = _s3.Bucket("eodata").objects.filter(Prefix=folder_name)
 
         # filter for extension
-        file_extensions = ['.jp2', '.tif', '.tiff', '.nc', '.dt2', '.dt1', '.img']
-        file_extensions.extend([x.upper() for x in file_extensions])
-        paths = [obj for obj in response if any([obj.key.endswith(x) for x in file_extensions])]
+        paths = [obj for obj in response if any([obj.key.endswith(x) for x in self.file_extensions])]
         if len(paths) == 0:
             raise RuntimeError("No file with valid extension found.")
 
