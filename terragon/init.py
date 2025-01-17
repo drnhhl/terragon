@@ -9,7 +9,7 @@ def init(api, credentials=None, **kwargs):
         return GEE(credentials, **kwargs)
     elif api == "cdse" or api == "copernicus_data_space_ecosystem":
         from .copernicus_data_space_ecosystem import CDSE
-        
+
         return CDSE(credentials, **kwargs)
     else:
         raise ValueError(f'API {api} not supported. Please use "pc" or "gee".')

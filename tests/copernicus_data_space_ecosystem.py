@@ -1,23 +1,23 @@
-import unittest
-import terragon
-import geopandas as gpd
-import shutil
-import json
 import os
-import rasterio
+import unittest
 
-from pathlib import Path
+import geopandas as gpd
 from base import _TestBase
-from utils import load_env_variables
 from shapely.geometry import Polygon
+from utils import load_env_variables
+
+import terragon
+
 
 class TestCDSE(_TestBase, unittest.TestCase):
     def setUp(self):
         super().setUp()
 
         load_env_variables()  # load the .env vars if running locally
-        credentials = {'aws_access_key_id': os.environ.get("S3_ACCESS_KEY"),
-                       'aws_secret_access_key': os.environ.get("S3_SECRET_KEY")}
+        credentials = {
+            "aws_access_key_id": os.environ.get("S3_ACCESS_KEY"),
+            "aws_secret_access_key": os.environ.get("S3_SECRET_KEY"),
+        }
         self.tg = terragon.init("cdse", credentials)
         self.arguments["collection"] = "SENTINEL-2"
         self.arguments["bands"] = ["B02", "B03", "B04"]
@@ -39,14 +39,12 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["start_date"] = "2022-01-01"
         args["end_date"] = "2022-07-31"
         args["resolution"] = 10
-        args["filter"] = {'platformShortName': {'eq': 'SENTINEL-2'}}
+        args["filter"] = {"platformShortName": {"eq": "SENTINEL-2"}}
 
         ds = self.tg.create(**args)
-        
+
         self.assertTrue(
-            len(ds.time) == 3
-            and len(ds.x) == self.width
-            and len(ds.y) == self.height
+            len(ds.time) == 3 and len(ds.x) == self.width and len(ds.y) == self.height
         )
 
     def test_s1(self):
@@ -58,7 +56,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["end_date"] = "2022-01-04"
         args["resolution"] = 10
         args["filter"] = {"productType": {"eq": "IW_GRDH_1S-COG"}}
-        
+
         ds = self.tg.create(**args)
 
         # test if the dimensions are correct, with +/- 1 pixel distance
@@ -69,7 +67,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
         )
 
         # not supported file format for raw data
-        args["filter"] = {"productType": {"eq": "IW_RAW__0S"}} # only dat files
+        args["filter"] = {"productType": {"eq": "IW_RAW__0S"}}  # only dat files
         self.assertRaises(RuntimeError, self.tg.create, **args)
 
     def test_multiple_files_s1(self):
@@ -82,19 +80,36 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["resolution"] = 10
         args["filter"] = {"productType": {"eq": "IW_SLC__1S"}}
         # use other region to include two files -> test only for 2 vars and time
-        args['shp'] = gpd.GeoDataFrame(geometry=[Polygon([(9.295, 47.425), (9.295+.001, 47.425), (9.295+.001, 47.425+.001), (9.295, 47.425+.001)])], crs="EPSG:4326")
+        args["shp"] = gpd.GeoDataFrame(
+            geometry=[
+                Polygon(
+                    [
+                        (9.295, 47.425),
+                        (9.296, 47.425),
+                        (9.296, 47.426),
+                        (9.295, 47.426),
+                    ]
+                )
+            ],
+            crs="EPSG:4326",
+        )
 
         ds = self.tg.create(**args)
 
-        self.assertTrue(
-            len(ds.data_vars) == 2
-            and len(ds.time) == 1
-        )
+        self.assertTrue(len(ds.data_vars) == 2 and len(ds.time) == 1)
 
     def test_s1_rtc(self):
         """test Sentinel-1-RTC data"""
         args = self.arguments.copy()
-        coords = [[[39.618673,-14.899018],[39.618673,-14.891632],[39.631033,-14.891632],[39.631033,-14.899018],[39.618673,-14.899018]]]
+        coords = [
+            [
+                [39.618673, -14.899018],
+                [39.618673, -14.891632],
+                [39.631033, -14.891632],
+                [39.631033, -14.899018],
+                [39.618673, -14.899018],
+            ]
+        ]
         polygon = Polygon(coords[0])
         args["shp"] = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[polygon])
         args["collection"] = "SENTINEL-1-RTC"
@@ -147,9 +162,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
         self.assertTrue(len(ds.data_vars) == 4)
 
         self.assertTrue(
-            len(ds.time) == 1
-            and len(ds.x) == self.width
-            and len(ds.y) == self.height
+            len(ds.time) == 1 and len(ds.x) == self.width and len(ds.y) == self.height
         )
 
     def test_dem(self):
@@ -159,26 +172,21 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["start_date"] = "2010-01-01"
         args["end_date"] = "2010-12-31"
         args["resolution"] = 90
-        args["filter"] = {'spatialResolution': {'eq': 90}, 'productType': {'eq': 'DGE_90'}}
+        args["filter"] = {
+            "spatialResolution": {"eq": 90},
+            "productType": {"eq": "DGE_90"},
+        }
 
         ds = self.tg.create(**args)
 
-        self.assertTrue(
-            len(ds.time) == 1
-            and len(ds.x) == 2
-            and len(ds.y) == 2
-        )
+        self.assertTrue(len(ds.time) == 1 and len(ds.x) == 2 and len(ds.y) == 2)
 
         # does contain two product types: DGE_30 and DTE_30
         args["resolution"] = 30
-        args["filter"] = {'spatialResolution': {'eq': 30}}
+        args["filter"] = {"spatialResolution": {"eq": 30}}
         ds = self.tg.create(**args)
 
-        self.assertTrue(
-            len(ds.time) == 2
-            and len(ds.x) == 9
-            and len(ds.y) == 6
-        )
+        self.assertTrue(len(ds.time) == 2 and len(ds.x) == 9 and len(ds.y) == 6)
 
     def test_modis(self):
         args = self.arguments.copy()
@@ -194,10 +202,18 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
     def test_l5(self):
         args = self.arguments.copy()
-        coords=[[[25.74646,53.944763],[25.808258,53.944763],[25.808258,53.918878],[25.74646,53.918878],[25.74646,53.944763]]]
+        coords = [
+            [
+                [25.74646, 53.944763],
+                [25.808258, 53.944763],
+                [25.808258, 53.918878],
+                [25.74646, 53.918878],
+                [25.74646, 53.944763],
+            ]
+        ]
         polygon = Polygon(coords[0])
         args["shp"] = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[polygon])
-        args["collection"] = f"LANDSAT-5"
+        args["collection"] = "LANDSAT-5"
         args["bands"] = ["B1"]
         args["start_date"] = "1984-12-08"
         args["end_date"] = "1984-12-08"
@@ -213,10 +229,12 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
     def test_l7(self):
         args = self.arguments.copy()
-        coords=[[[32.9,62.5], [33.0,62.5], [33.0,62.49], [32.9,62.49], [32.9,62.5]]]
+        coords = [
+            [[32.9, 62.5], [33.0, 62.5], [33.0, 62.49], [32.9, 62.49], [32.9, 62.5]]
+        ]
         polygon = Polygon(coords[0])
         args["shp"] = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[polygon])
-        args["collection"] = f"LANDSAT-7"
+        args["collection"] = "LANDSAT-7"
         args["bands"] = ["B1"]
         args["start_date"] = "1999-11-01"
         args["end_date"] = "1999-11-01"
@@ -240,12 +258,9 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["filter"] = {"processingLevel": {"eq": "LEVEL2"}}
 
         ds = self.tg.create(**args)
-        
-        self.assertTrue(
-            len(ds.time) == 4
-            and len(ds.x) == 8
-            and len(ds.y) == 5
-        )
 
-if __name__ == '__main__':
+        self.assertTrue(len(ds.time) == 4 and len(ds.x) == 8 and len(ds.y) == 5)
+
+
+if __name__ == "__main__":
     unittest.main()
