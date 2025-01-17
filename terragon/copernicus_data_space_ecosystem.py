@@ -15,9 +15,9 @@ from .utils import meters_to_crs_unit, indices_are_identical
 from .base import Base
 from shapely.geometry import Polygon, box
 import warnings
-from rioxarray.rioxarray import _make_coords
 import itertools
 from urllib.parse import urlparse
+from rasterio.vrt import WarpedVRT
 
 supported_collections = ['COP-DEM','GLOBAL-MOSAICS','LANDSAT-5','LANDSAT-7','LANDSAT-8-ESA','TERRAAQUA','S2GLC','SENTINEL-1','SENTINEL-1-RTC','SENTINEL-2']
 
@@ -264,22 +264,18 @@ class CDSE(Base):
 
     def _align_resolutions(self, datasets, shp, resolution, resampling):
         """unify the resolutions of the list of the xr.Datasets."""
-        ress = [ds.rio.resolution()[0] for ds in datasets]
+        ress = [ds.rio.resolution() for ds in datasets]
         resolution = meters_to_crs_unit(resolution, shp)
-        # round the resolution to x decimal places
-        resolution = round(resolution, 5)
-        ress = [round(res, 5) for res in ress]
-        if len(set(ress)) > 1 or (len(ress) > 0 and ress[0] != resolution): # TODO here it needs to be rounded to some extent, otherwise it will reproject even with the same resolution
-            idx = [i for i, res in enumerate(ress) if res == resolution]
-            if len(idx) == 0:
-                warnings.warn(f"No matching resolution found in the bands. Using first band as master with resolution {ress[0]}.")
-                idx = 0
-            else:
-                idx = idx[0]
-            if ress[idx] != resolution:
-                datasets[idx] = datasets[idx].rio.reproject(shp.crs, resolution=resolution, resampling=resampling)
-            # reproject rest to master
-            datasets = [ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds for i, ds in enumerate(datasets)]
+        # round degrees to 8 decimal places for cm resolution
+        ress = [(round(res[0], 8),round(res[0], 8)) for res in ress]
+        resolution = [round(res, 8) for res in resolution]
+        if len(set(ress)) > 1 or (len(ress) > 0 and ress[0] != resolution):
+            # get closest resolution
+            idx = sorted(enumerate(ress), key=lambda item: abs(resolution[0] - abs(item[1][0])) + abs(resolution[1] - abs(item[1][1])))[0][0]
+        if ress[idx] != resolution:
+            datasets[idx] = datasets[idx].rio.reproject(shp.crs, resolution=resolution, resampling=resampling)
+        # reproject rest to master
+        datasets = [ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds for i, ds in enumerate(datasets)]
         return datasets
 
     def _download_file(self, f_path, shp, resampling, use_virtual_rasterio_file):
@@ -377,23 +373,14 @@ class CDSE(Base):
 
     def _clip_to_region(self, file, shp, resampling):
         try:
-            ds = rxr.open_rasterio(file,masked=True)
-            # try to get it with rasterio
-            with rasterio.open(file) as src:
-                # if rasterio does not find the crs in meta data, assume it is gcp
-                # hence transform/coords need to be set explicitly
-                if src.crs is None:
-                    gcps, src_crs = src.gcps
-                    if gcps:
-                        # transform from the gcps
-                        transform = rasterio.transform.from_gcps(gcps)
-                        ds = ds.rio.write_crs(src_crs)
-                        ds = ds.rio.write_transform(transform)
-                        ds = ds.rio.reproject(ds.rio.crs) # TODO how to do that differently?
-                        # coords = _make_coords(src_data_array=ds, dst_affine=transform, dst_width=ds.sizes['x'], dst_height=ds.sizes['y'], force_generate=True)
-                        # ds = ds.assign_coords(coords)
-                        # if 'xc' in ds.coords: # TODO renaming does not work whysoever
-                        #     ds = ds.rename({'xc': 'x', 'yc': 'y'})
+            ds = rxr.open_rasterio(file)
+            gcps = ds.rio.get_gcps()
+            if gcps and not any(c in ds.coords for c in ['x', 'y']):
+                with rasterio.open(file) as src:
+                    gcps, crs = src.get_gcps()
+                    # use WarpedVRT to get the correct transform/coordinates
+                    with WarpedVRT(src, src_crs=crs, resampling=resampling) as vrt:
+                        ds = rxr.open_rasterio(vrt)
             if ds.rio.crs is None:
                 warnings.warn("No crs found, continuing with EPSG:4326.")
                 ds = ds.rio.write_crs("EPSG:4326")
@@ -409,8 +396,7 @@ class CDSE(Base):
                 gdf = gpd.GeoDataFrame(geometry=[shapely_box], crs=src_crs)
                 ds = ds.rio.clip_box(*list(gdf.total_bounds))
                 # then reproject to shp crs
-                crs_res = meters_to_crs_unit(res, shp) # TODO is this correct?
-                ds = ds.rio.reproject(shp.crs, resolution=crs_res, resampling=resampling)
+                ds = ds.rio.reproject(shp.crs, resampling=resampling)
                 ds = ds.rio.clip_box(*list(shp.total_bounds))
             else:
                 ds = ds.rio.clip_box(*list(shp.total_bounds))
