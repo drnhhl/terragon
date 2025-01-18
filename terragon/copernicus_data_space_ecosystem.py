@@ -33,9 +33,15 @@ supported_collections = [
 
 
 class CDSE(Base):
-    """Class to interact with the Copernicus Data Space Ecosystem."""
+    """Class to interact with the Copernicus Data Space Ecosystem. The image are downloaded from the AWS bucket.
+    The package rasterio/rioxarray/boto will be used to download the images.
+    Currently only these collections are supported: "COP-DEM", "GLOBAL-MOSAICS","LANDSAT-5","LANDSAT-7","LANDSAT-8-ESA",
+    "TERRAAQUA","S2GLC","SENTINEL-1","SENTINEL-1-RTC","SENTINEL-2".
 
-    f"""currently only {supported_collections} are supported."""
+    :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
+    :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
+    :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
+    """
     file_extensions = [
         ".jp2",
         ".tif",
@@ -55,10 +61,17 @@ class CDSE(Base):
 
     def __init__(
         self,
-        credentials: dict = None,
+        credentials: dict,
         base_url: str = "https://catalogue.dataspace.copernicus.eu/stac/",
         end_point_url: str = "https://eodata.dataspace.copernicus.eu",
     ):
+        """Initialize class and save the credentials.
+
+        :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
+        :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
+        :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
+        :raises ValueError: when the credentials are in the wrong format
+        """
         super().__init__()
         self.base_url = base_url
         self.end_point_url = end_point_url
@@ -73,6 +86,12 @@ class CDSE(Base):
         self.credentials = credentials
 
     def retrieve_collections(self, filter_by_name: str = None):
+        """Search the collections provided by Copernicus Data Space Ecosystem.
+
+        :param filter_by_name: name to filter the collections for, defaults to None
+        :raises RuntimeError: if the request to the collections endpoint fails
+        :return: a list of collection names
+        """
         collections_url = urljoin(self.base_url, "collections")
         response = requests.get(collections_url)
 
@@ -94,12 +113,23 @@ class CDSE(Base):
 
     def search(
         self,
-        rm_tmp_files=True,
-        use_virtual_rasterio_file=True,
         resampling=rasterio.enums.Resampling.nearest,
+        use_virtual_rasterio_file=True,
+        rm_tmp_files=True,
         filter_asset_path={"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"},
         **kwargs,
     ):
+        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the kwargs parameters see the Base class function.
+
+        :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
+        :param use_virtual_rasterio_file: use rasterio virtual file function when True, when False whole file is downloaded, defaults to True
+        :param rm_tmp_files: only used with 'use_virtual_rasterio_file=False' to remove the files after the minicube is created, defaults to True
+        :param filter_asset_path: manual filtering of the filepath in the AWS bucket, used for collections with ambiguous file names, defaults to {"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"}
+        :raises ValueError: when no items are found or parameters are in the wrong format
+        :raises RuntimeError: when the corresponding files for the items are not found
+
+        :return: a list of items
+        """
         super().search(**kwargs)
         self._parameters.update(
             {
@@ -212,6 +242,11 @@ class CDSE(Base):
         return items
 
     def download(self, items, create_minicube=True):
+       """Download the items from Copernicus Data Space Ecosystem as xr.Dataset or download the files.
+
+        :param items: items to download
+        :return: xarray.Dataset or list of filenames
+        """
         if create_minicube:
             ds = self._download_to_minicube(
                 items,
