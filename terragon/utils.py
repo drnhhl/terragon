@@ -34,14 +34,17 @@ def meters_to_crs_unit(meters, shp):
     # reference point
     point = shp_utm.geometry.iloc[0].centroid
     # offset point
-    offset_point = Point(point.x, point.y + meters)
+    offset_point_x = Point(point.x + meters, point.y)
+    offset_point_y = Point(point.x, point.y + meters)
 
     # Convert the points to the CRS of the shape
     transformer = pyproj.Transformer.from_crs(shp_utm.crs, shp.crs, always_xy=True)
     orig_point = transformer.transform(point.x, point.y)
-    offset_point_in_orig_crs = transformer.transform(offset_point.x, offset_point.y)
+    offset_point_in_orig_crs_x = transformer.transform(offset_point_x.x, offset_point_x.y)
+    offset_point_in_orig_crs_y = transformer.transform(offset_point_y.x, offset_point_y.y)
 
     # distance in the shape's CRS units
-    distance_units = Point(orig_point).distance(Point(offset_point_in_orig_crs))
+    distance_units_x = Point(orig_point).distance(Point(offset_point_in_orig_crs_x))
+    distance_units_y = Point(orig_point).distance(Point(offset_point_in_orig_crs_y))
 
-    return distance_units
+    return distance_units_x, distance_units_y
