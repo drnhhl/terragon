@@ -18,7 +18,18 @@ class _TestBase:
             resolution=10,
             download_folder="tests/download/",
         )
-        self.width, self.height, self.nr_time_steps = 42, 18, 2
+        # determing pixel size:
+        # 10m in epsg:4326 is 0.00013405 in x and 0.00008987 in y:
+        # bounds = gdf.bounds
+        # (bounds.minx - bounds.maxx) / 0.00013405 = -27.109288
+        # (bounds.miny - bounds.maxy) / 0.00008987 = -16.557249
+        # pixel size in utm is 10m:
+        # bounds = gdf_utm.to_crs("EPSG:32632").bounds
+        # (bounds.minx - bounds.maxx) / 10 = -27.226094
+        # (bounds.miny - bounds.maxy) / 10 = -17.268867
+
+        # test with +/- 1 pixel error because of variations in data source
+        self.width, self.height, self.nr_time_steps = 27, 17, 2
 
     def test_collections(self):
         col = self.tg.retrieve_collections("sentinel")
@@ -31,11 +42,11 @@ class _TestBase:
     def test_download(self):
         items = self.tg.search(**self.arguments)
         ds = self.tg.download(items)
-        self.assertTrue(ds is not None)
+
         self.assertTrue(
             len(ds.time) == self.nr_time_steps
-            and len(ds.x) == self.width
-            and len(ds.y) == self.height
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_download_tifs(self):
@@ -48,10 +59,11 @@ class _TestBase:
 
     def test_create(self):
         ds = self.tg.create(**self.arguments)
+
         self.assertTrue(
             len(ds.time) == self.nr_time_steps
-            and len(ds.x) == self.width
-            and len(ds.y) == self.height
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_crs(self):
@@ -60,9 +72,11 @@ class _TestBase:
         args["shp"] = args["shp"].to_crs("EPSG:32632")
         args["resolution"] = 10  # 10m resolution
         ds = self.tg.create(**args)
-        width, height = 28, 18
+
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_resolution(self):
@@ -71,9 +85,12 @@ class _TestBase:
         args["shp"] = args["shp"].to_crs("EPSG:32632")
         args["resolution"] = 20
         ds = self.tg.create(**args)
-        width, height = 15, 10
+        width, height = 14, 9
+
         self.assertTrue(
-            len(ds.time) == self.nr_time_steps and len(ds.x) == width and len(ds.y) == height
+            len(ds.time) == self.nr_time_steps
+            and width - 1 <= len(ds.x) <= width + 1
+            and height - 1 <= len(ds.y) <= height + 1
         )
 
     def test_fail_on_missing_params(self):
