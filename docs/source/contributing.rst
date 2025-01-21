@@ -6,7 +6,7 @@ Git, GitHub and Releases
 ------------------------
 The project uses the GitHub with the Gitflow workflow. The main branch is 'main' and the development branch is 'dev'. Feature branches are created from 'dev' and merged back into 'dev' with a pull request. If you want to contribute to the project, please fork the repository and create a pull request to the 'dev' branch.
 
-When new releases are created they are automatically deployed to PyPi via GitHub actions. Make sure to update the version number in terragon/__init__.py before creating a new release.
+When new releases are created they are automatically deployed to PyPi via GitHub actions. Make sure to update the version number in terragon/__init__.py before creating a new release and to update the changelog in the 'docs/source/changelog.rst'.
 
 Adding a new data source
 ------------------------
