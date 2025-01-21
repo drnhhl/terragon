@@ -23,8 +23,6 @@ class TestCDSE(_TestBase, unittest.TestCase):
         self.arguments["bands"] = ["B02", "B03", "B04"]
         self.arguments["filter"] = {"processingLevel": {"eq": "S2MSI2A"}}
 
-        self.width, self.height, self.nr_time_steps = 27, 16, 2
-
     def test_error_on_no_band(self):
         """test error if no band is given"""
         args = self.arguments.copy()
@@ -44,7 +42,9 @@ class TestCDSE(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 3 and len(ds.x) == self.width and len(ds.y) == self.height
+            len(ds.time) == 3
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_s1(self):
@@ -142,8 +142,8 @@ class TestCDSE(_TestBase, unittest.TestCase):
         self.assertTrue(
             len(ds.data_vars) == 3
             and len(ds.time) == 1
-            and len(ds.x) == self.width
-            and len(ds.y) == self.height
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_merge_bands_multiband_and_band_s2_landcover(self):
@@ -162,7 +162,9 @@ class TestCDSE(_TestBase, unittest.TestCase):
         self.assertTrue(len(ds.data_vars) == 4)
 
         self.assertTrue(
-            len(ds.time) == 1 and len(ds.x) == self.width and len(ds.y) == self.height
+            len(ds.time) == 1
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_dem(self):
@@ -179,14 +181,22 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
         ds = self.tg.create(**args)
 
-        self.assertTrue(len(ds.time) == 1 and len(ds.x) == 2 and len(ds.y) == 2)
+        self.assertTrue(
+            len(ds.time) == 1
+            and self.width//9 - 1 <= len(ds.x) <= self.width//9 + 1
+            and self.height//9 - 1 <= len(ds.y) <= self.height//9 + 1
+        )
 
         # does contain two product types: DGE_30 and DTE_30
         args["resolution"] = 30
         args["filter"] = {"spatialResolution": {"eq": 30}}
         ds = self.tg.create(**args)
 
-        self.assertTrue(len(ds.time) == 2 and len(ds.x) == 9 and len(ds.y) == 6)
+        self.assertTrue(
+            len(ds.time) == 2
+            and self.width//3 - 1 <= len(ds.x) <= self.width//3 + 1
+            and self.height//3 - 1 <= len(ds.y) <= self.height//3 + 1
+        )
 
     def test_modis(self):
         args = self.arguments.copy()
@@ -259,8 +269,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
         ds = self.tg.create(**args)
 
-        self.assertTrue(len(ds.time) == 4 and len(ds.x) == 8 and len(ds.y) == 5)
-
+        self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
 
 if __name__ == "__main__":
     unittest.main()

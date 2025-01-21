@@ -140,19 +140,19 @@ class CDSE(Base):
             }
         )
 
-        if self.param("collection") not in supported_collections:
+        if self._param("collection") not in supported_collections:
             warnings.warn(
                 f"Currently we only support collections: {supported_collections}"
             )
-        if self.param("num_workers") > 4:
+        if self._param("num_workers") > 4:
             warnings.warn(
                 "More than 4 workers are not recommended, because only 4 concurrent connections are allowed: https://documentation.dataspace.copernicus.eu/Quotas.html."
             )
 
-        shp_4326 = self._reproject_shp(self.param("shp"))
+        shp_4326 = self._reproject_shp(self._param("shp"))
         bbox = shp_4326.total_bounds
-        start_date = self.param("start_date")
-        end_date = self.param("end_date")
+        start_date = self._param("start_date")
+        end_date = self._param("end_date")
         # make end_date inclusive
         start_date = (
             f"{start_date}T00:00:00.000"
@@ -167,18 +167,18 @@ class CDSE(Base):
         data = {
             "bbox": bbox.tolist(),
             "datetime": datetime,
-            "collections": [self.param("collection")],
+            "collections": [self._param("collection")],
             "limit": 1000,
         }
         items = self._get_pages(data)
 
         if len(items) == 0:
             raise ValueError(
-                f"No items found for {self.param('collection')} between {datetime}."
+                f"No items found for {self._param('collection')} between {datetime}."
             )
 
         # apply filters
-        filter = self.param("filter")
+        filter = self._param("filter")
         if filter is not None and len(filter) > 0:
             for option in filter:
                 for k, v in filter[option].items():
@@ -214,7 +214,7 @@ class CDSE(Base):
 
         if len(items) == 0:
             raise ValueError(
-                f"No items found for {self.param('collection')} between {datetime} after filtering."
+                f"No items found for {self._param('collection')} between {datetime} after filtering."
             )
 
         return items
@@ -241,35 +241,35 @@ class CDSE(Base):
 
         return items
 
-    def download(self, items, create_minicube=True):
-       """Download the items from Copernicus Data Space Ecosystem as xr.Dataset or download the files.
+    def download(self, items):
+        """Download the items from Copernicus Data Space Ecosystem as xr.Dataset or download the files.
 
         :param items: items to download
         :return: xarray.Dataset or list of filenames
         """
-        if create_minicube:
+        if self._param("create_minicube"):
             ds = self._download_to_minicube(
                 items,
-                self.param("shp"),
-                self.param("collection"),
-                self.param("bands", raise_error=True),
-                self.param("resolution"),
-                self.param("resampling"),
-                self.param("filter_asset_path"),
-                self.param("use_virtual_rasterio_file"),
+                self._param("shp"),
+                self._param("collection"),
+                self._param("bands", raise_error=True),
+                self._param("resolution"),
+                self._param("resampling"),
+                self._param("filter_asset_path"),
+                self._param("use_virtual_rasterio_file"),
             )
-            ds = self.prepare_cube(ds)
+            ds = self._prepare_cube(ds)
             return ds
         else:
             return self._download_to_files(
                 items,
-                self.param("shp"),
-                self.param("collection"),
-                self.param("bands", raise_error=True),
-                self.param("resolution"),
-                self.param("resampling"),
-                self.param("filter_asset_path"),
-                self.param("use_virtual_rasterio_file"),
+                self._param("shp"),
+                self._param("collection"),
+                self._param("bands", raise_error=True),
+                self._param("resolution"),
+                self._param("resampling"),
+                self._param("filter_asset_path"),
+                self._param("use_virtual_rasterio_file"),
             )
 
     def _download_to_files(
@@ -284,7 +284,7 @@ class CDSE(Base):
         use_virtual_rasterio_file,
     ):
         """Download all the items and return the file paths."""
-        fns = Parallel(n_jobs=self.param("num_workers"))(
+        fns = Parallel(n_jobs=self._param("num_workers"))(
             delayed(self._download_to_file)(
                 item,
                 shp,
@@ -319,7 +319,7 @@ class CDSE(Base):
         # replace extension to tif and collapse folders to name (there can be multiple files with the same name)
         fns = []
         for f_path in f_paths:
-            fn = self.param("download_folder") / Path(
+            fn = self._param("download_folder") / Path(
                 "_".join(f_path.with_suffix(".tif").parts)
             )
             if not fn.exists():
@@ -343,7 +343,7 @@ class CDSE(Base):
     ):
         """Download all items and merge them into a dataset."""
         # do not rely on threading here, because it will mess up the xarrays
-        datasets = Parallel(n_jobs=self.param("num_workers"))(
+        datasets = Parallel(n_jobs=self._param("num_workers"))(
             delayed(self._download_item)(
                 item,
                 shp,
@@ -361,7 +361,7 @@ class CDSE(Base):
             datasets[i: i + len(bands)] for i in range(0, len(datasets), len(bands))
         ]
         # combine them to dataset with time data [ds1, ds2, ...]
-        time_data = Parallel(n_jobs=self.param("num_workers"))(
+        time_data = Parallel(n_jobs=self._param("num_workers"))(
             delayed(self._combine_bands)(
                 datasets[i], shp, bands, resolution, resampling
             )
@@ -585,7 +585,7 @@ class CDSE(Base):
     def _download_file_tile(self, f_path, shp, resampling):
         """Download a band of an item and clip it to the shapefile."""
         # download the file locally
-        download_path = self.param("download_folder") / f_path
+        download_path = self._param("download_folder") / f_path
         download_path.parent.mkdir(parents=True, exist_ok=True)
         if not download_path.exists():
             _s3 = boto3.Session(
@@ -600,7 +600,7 @@ class CDSE(Base):
         clipped = self._clip_to_region(download_path, shp, resampling)
 
         # optionally remove the downloaded file
-        if self.param("rm_tmp_files"):
+        if self._param("rm_tmp_files"):
             download_path.unlink(missing_ok=True)
 
         return clipped
