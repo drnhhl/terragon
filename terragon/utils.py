@@ -23,6 +23,7 @@ def indices_are_identical(datasets: list) -> bool:
 
     return True
 
+
 def rm_files(fns):
     for fn in fns:
         if fn.exists():

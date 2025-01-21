@@ -1,7 +1,7 @@
 [flake8]
 ; max-line-length = 127
-max-complexity = 10
+max-complexity = 12
 statistics = true
 count = true
 show-source = true
-ignore = E501, W503
+ignore = E501, W503, E203

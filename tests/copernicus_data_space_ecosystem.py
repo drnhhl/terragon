@@ -183,8 +183,8 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
         self.assertTrue(
             len(ds.time) == 1
-            and self.width//9 - 1 <= len(ds.x) <= self.width//9 + 1
-            and self.height//9 - 1 <= len(ds.y) <= self.height//9 + 1
+            and self.width // 9 - 1 <= len(ds.x) <= self.width // 9 + 1
+            and self.height // 9 - 1 <= len(ds.y) <= self.height // 9 + 1
         )
 
         # does contain two product types: DGE_30 and DTE_30
@@ -194,8 +194,8 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
         self.assertTrue(
             len(ds.time) == 2
-            and self.width//3 - 1 <= len(ds.x) <= self.width//3 + 1
-            and self.height//3 - 1 <= len(ds.y) <= self.height//3 + 1
+            and self.width // 3 - 1 <= len(ds.x) <= self.width // 3 + 1
+            and self.height // 3 - 1 <= len(ds.y) <= self.height // 3 + 1
         )
 
     def test_modis(self):
@@ -239,9 +239,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
     def test_l7(self):
         args = self.arguments.copy()
-        coords = [
-            [[32.9, 62.5], [33.0, 62.5], [33.0, 62.49], [32.9, 62.49], [32.9, 62.5]]
-        ]
+        coords = [[[32.9, 62.5], [33.0, 62.5], [33.0, 62.49], [32.9, 62.49], [32.9, 62.5]]]
         polygon = Polygon(coords[0])
         args["shp"] = gpd.GeoDataFrame(index=[0], crs="EPSG:4326", geometry=[polygon])
         args["collection"] = "LANDSAT-7"
@@ -270,6 +268,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
+
 
 if __name__ == "__main__":
     unittest.main()

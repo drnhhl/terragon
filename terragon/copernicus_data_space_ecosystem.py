@@ -33,16 +33,17 @@ supported_collections = [
 
 
 class CDSE(Base):
-    """Class to interact with the Copernicus Data Space Ecosystem. The image are downloaded from the AWS bucket.
-    The package rasterio/rioxarray/boto will be used to download the images.
-    Currently only these collections are supported: "COP-DEM", "GLOBAL-MOSAICS","LANDSAT-5","LANDSAT-7","LANDSAT-8-ESA",
-    "TERRAAQUA","S2GLC","SENTINEL-1","SENTINEL-1-RTC","SENTINEL-2".
+    """Class to interact with the Copernicus Data Space Ecosystem. The images are downloaded from the AWS bucket.
+    The packages rasterio/rioxarray/boto will be used to download the images.
+    Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA, 
+    TERRAAQUA, S2GLC, SENTINEL-1, SENTINEL-1-RTC, SENTINEL-2.
 
     :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
     :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
     :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
     """
-    file_extensions = [
+
+    _file_extensions = [
         ".jp2",
         ".tif",
         ".tiff",
@@ -76,10 +77,7 @@ class CDSE(Base):
         self.base_url = base_url
         self.end_point_url = end_point_url
         if credentials:
-            if (
-                "aws_access_key_id" not in credentials
-                or "aws_secret_access_key" not in credentials
-            ):
+            if "aws_access_key_id" not in credentials or "aws_secret_access_key" not in credentials:
                 raise ValueError(
                     "aws_access_key_id or aws_secret_access_key not in credentials, could not initialize."
                 )
@@ -100,9 +98,7 @@ class CDSE(Base):
             collections = [collection["id"] for collection in data["collections"]]
             if filter_by_name:
                 collections = [
-                    collection
-                    for collection in collections
-                    if filter_by_name in collection.lower()
+                    collection for collection in collections if filter_by_name in collection.lower()
                 ]
             warnings.warn(
                 f"Currently we only support the following collections: {supported_collections}"
@@ -141,9 +137,7 @@ class CDSE(Base):
         )
 
         if self._param("collection") not in supported_collections:
-            warnings.warn(
-                f"Currently we only support collections: {supported_collections}"
-            )
+            warnings.warn(f"Currently we only support collections: {supported_collections}")
         if self._param("num_workers") > 4:
             warnings.warn(
                 "More than 4 workers are not recommended, because only 4 concurrent connections are allowed: https://documentation.dataspace.copernicus.eu/Quotas.html."
@@ -155,13 +149,9 @@ class CDSE(Base):
         end_date = self._param("end_date")
         # make end_date inclusive
         start_date = (
-            f"{start_date}T00:00:00.000"
-            if start_date and "T" not in start_date
-            else start_date
+            f"{start_date}T00:00:00.000" if start_date and "T" not in start_date else start_date
         )
-        end_date = (
-            f"{end_date}T23:59:59.999" if end_date and "T" not in end_date else end_date
-        )
+        end_date = f"{end_date}T23:59:59.999" if end_date and "T" not in end_date else end_date
         datetime = f"{start_date}/{end_date}" if start_date and end_date else None
 
         data = {
@@ -173,49 +163,33 @@ class CDSE(Base):
         items = self._get_pages(data)
 
         if len(items) == 0:
-            raise ValueError(
-                f"No items found for {self._param('collection')} between {datetime}."
-            )
+            raise ValueError(f"No items found for {self._param('collection')} between {datetime}.")
 
-        # apply filters
-        filter = self._param("filter")
+        # apply filters #
+        return self._filter_items(items, self._param("filter"))
+
+    def _filter_items(self, items, filter):
         if filter is not None and len(filter) > 0:
             for option in filter:
                 for k, v in filter[option].items():
                     if k == "eq":
-                        items = [
-                            item for item in items if item["properties"][option] == v
-                        ]
+                        items = [item for item in items if item["properties"][option] == v]
                     elif k == "ueq":
-                        items = [
-                            item for item in items if item["properties"][option] != v
-                        ]
+                        items = [item for item in items if item["properties"][option] != v]
                     elif k == "in":
                         # value should be list
                         if not isinstance(v, list):
                             raise ValueError(f"Filter option {k} needs a list.")
-                        items = [
-                            item for item in items if item["properties"][option] in v
-                        ]
+                        items = [item for item in items if item["properties"][option] in v]
                     elif k == "lt":
-                        items = [
-                            item
-                            for item in items
-                            if float(item["properties"][option]) < v
-                        ]
+                        items = [item for item in items if float(item["properties"][option]) < v]
                     elif k == "gt":
-                        items = [
-                            item
-                            for item in items
-                            if float(item["properties"][option]) > v
-                        ]
+                        items = [item for item in items if float(item["properties"][option]) > v]
                     else:
                         raise ValueError(f"Filter option {k} not supported.")
 
         if len(items) == 0:
-            raise ValueError(
-                f"No items found for {self._param('collection')} between {datetime} after filtering."
-            )
+            raise ValueError(f"No items found for {self._param('collection')} after filtering.")
 
         return items
 
@@ -313,19 +287,13 @@ class CDSE(Base):
         use_virtual_rasterio_file,
     ):
         """Download item to file."""
-        f_paths = self._get_asset_path(
-            item, collection, band, resolution, filter_asset_path
-        )
+        f_paths = self._get_asset_path(item, collection, band, resolution, filter_asset_path)
         # replace extension to tif and collapse folders to name (there can be multiple files with the same name)
         fns = []
         for f_path in f_paths:
-            fn = self._param("download_folder") / Path(
-                "_".join(f_path.with_suffix(".tif").parts)
-            )
+            fn = self._param("download_folder") / Path("_".join(f_path.with_suffix(".tif").parts))
             if not fn.exists():
-                clipped = self._download_file(
-                    f_path, shp, resampling, use_virtual_rasterio_file
-                )
+                clipped = self._download_file(f_path, shp, resampling, use_virtual_rasterio_file)
                 clipped.rio.to_raster(fn)
             fns.append(fn)
         return fns
@@ -357,14 +325,10 @@ class CDSE(Base):
             for item, band in itertools.product(items, bands)
         )
         # extract list of lists [[item1band1, item1band2, ...], [item2band1, item2band2, ...], ...]
-        datasets = [
-            datasets[i: i + len(bands)] for i in range(0, len(datasets), len(bands))
-        ]
+        datasets = [datasets[i : i + len(bands)] for i in range(0, len(datasets), len(bands))]
         # combine them to dataset with time data [ds1, ds2, ...]
         time_data = Parallel(n_jobs=self._param("num_workers"))(
-            delayed(self._combine_bands)(
-                datasets[i], shp, bands, resolution, resampling
-            )
+            delayed(self._combine_bands)(datasets[i], shp, bands, resolution, resampling)
             for i in range(len(datasets))
         )
 
@@ -374,9 +338,7 @@ class CDSE(Base):
 
         # extract time information for each dataset
         if len(time_data) != len(items):
-            raise RuntimeError(
-                "Lengths of downloaded items and requested items do not match."
-            )
+            raise RuntimeError("Lengths of downloaded items and requested items do not match.")
         # skip items which were not found
         time_data, times = map(
             list,
@@ -414,16 +376,12 @@ class CDSE(Base):
     ):
         """Download all bands of an item and merge them into a dataset."""
         # go through the bands
-        f_paths = self._get_asset_path(
-            item, collection, band, resolution, filter_asset_path
-        )
+        f_paths = self._get_asset_path(item, collection, band, resolution, filter_asset_path)
         if len(f_paths) > 1:
             # if there are multiple assets, merge them
             datasets = []
             for f_path in f_paths:
-                ds = self._download_file(
-                    f_path, shp, resampling, use_virtual_rasterio_file
-                )
+                ds = self._download_file(f_path, shp, resampling, use_virtual_rasterio_file)
                 if ds is None:
                     continue
                 if "band" not in ds.coords:
@@ -441,14 +399,9 @@ class CDSE(Base):
                 if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]):
                     datasets = self._align_coords(datasets, shp, resampling)
                 if not all(
-                    [
-                        ds.rio.resolution()[0] == datasets[0].rio.resolution()[0]
-                        for ds in datasets
-                    ]
+                    [ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]
                 ):
-                    datasets = self._align_resolutions(
-                        datasets, shp, resolution, resampling
-                    )
+                    datasets = self._align_resolutions(datasets, shp, resolution, resampling)
                 # add them as new bands
                 clipped = xr.concat(datasets, dim="band")
             elif len(datasets) == 0:
@@ -457,9 +410,7 @@ class CDSE(Base):
                 clipped = datasets[0]
         else:
             # single asset
-            clipped = self._download_file(
-                f_paths[0], shp, resampling, use_virtual_rasterio_file
-            )
+            clipped = self._download_file(f_paths[0], shp, resampling, use_virtual_rasterio_file)
 
         return clipped
 
@@ -478,9 +429,7 @@ class CDSE(Base):
 
         # pad everything to make sure it has shape of shp
         band_data = [
-            ds.rio.pad_box(*list(shp.total_bounds)).rio.clip_box(
-                *list(shp.total_bounds)
-            )
+            ds.rio.pad_box(*list(shp.total_bounds)).rio.clip_box(*list(shp.total_bounds))
             for ds in band_data
         ]
 
@@ -519,11 +468,7 @@ class CDSE(Base):
             else:
                 idx = idx[0]
             datasets = [
-                (
-                    ds.rio.reproject_match(datasets[idx], resampling=resampling)
-                    if i != idx
-                    else ds
-                )
+                (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
                 for i, ds in enumerate(datasets)
             ]
         return datasets
@@ -548,11 +493,7 @@ class CDSE(Base):
             )
         # reproject rest to master
         datasets = [
-            (
-                ds.rio.reproject_match(datasets[idx], resampling=resampling)
-                if i != idx
-                else ds
-            )
+            (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
             for i, ds in enumerate(datasets)
         ]
         return datasets
@@ -577,9 +518,7 @@ class CDSE(Base):
             aws_secret_access_key=self.credentials["aws_secret_access_key"],
         )
         with rasterio.env.Env(session=session, AWS_VIRTUAL_HOSTING=False):
-            clipped = self._clip_to_region(
-                "s3://eodata/" + str(f_path), shp, resampling
-            )
+            clipped = self._clip_to_region("s3://eodata/" + str(f_path), shp, resampling)
             return clipped
 
     def _download_file_tile(self, f_path, shp, resampling):
@@ -625,9 +564,7 @@ class CDSE(Base):
 
         # filter for extension
         paths = [
-            obj
-            for obj in response
-            if any([obj.key.endswith(x) for x in self.file_extensions])
+            obj for obj in response if any([obj.key.endswith(x) for x in self._file_extensions])
         ]
         if len(paths) == 0:
             raise RuntimeError("No file with valid extension found.")
@@ -643,9 +580,7 @@ class CDSE(Base):
             else:
                 # try again with lower and upper case
                 paths = [
-                    path
-                    for path in paths
-                    if band.lower() in path.name or band.upper() in path.name
+                    path for path in paths if band.lower() in path.name or band.upper() in path.name
                 ]
             if len(paths) == 0:
                 raise RuntimeError(f"Band {band} not found, is it written correctly?")
@@ -663,9 +598,7 @@ class CDSE(Base):
         paths_new = [
             path for path in paths if f"{resolution}m" in str(path)
         ]  # filter for resolution (currently only applies for S2)
-        if (
-            len(paths_new) > 0
-        ):  # if it was found take it, otherwise will be resampled later
+        if len(paths_new) > 0:  # if it was found take it, otherwise will be resampled later
             paths = paths_new
 
         if len(paths) == 0:
