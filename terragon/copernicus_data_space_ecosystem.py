@@ -35,7 +35,7 @@ supported_collections = [
 class CDSE(Base):
     """Class to interact with the Copernicus Data Space Ecosystem. The images are downloaded from the AWS bucket.
     The packages rasterio/rioxarray/boto will be used to download the images.
-    Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA, 
+    Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA,
     TERRAAQUA, S2GLC, SENTINEL-1, SENTINEL-1-RTC, SENTINEL-2.
 
     :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
