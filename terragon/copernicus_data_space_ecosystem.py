@@ -294,6 +294,7 @@ class CDSE(Base):
             fn = self._param("download_folder") / Path("_".join(f_path.with_suffix(".tif").parts))
             if not fn.exists():
                 clipped = self._download_file(f_path, shp, resampling, use_virtual_rasterio_file)
+                fn.parent.mkdir(parents=True, exist_ok=True)
                 clipped.rio.to_raster(fn)
             fns.append(fn)
         return fns
