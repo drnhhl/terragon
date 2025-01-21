@@ -20,4 +20,4 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
 
         return CDSE(credentials, **kwargs)
     else:
-        raise ValueError(f'API {api} not supported. Please use "pc" or "gee".')
+        raise ValueError(f'API {api} not supported. Please use "pc", "gee", or "cdse".')
