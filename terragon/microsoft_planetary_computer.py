@@ -106,7 +106,7 @@ class PC(Base):
                 items,
                 bands=self._param("bands"),
                 crs=shp.crs,
-                resolution=res,
+                resolution=odc.geo.resxy_(*res),
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3]),
             )
