@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import re
 import warnings
 from typing import List, Union
@@ -10,6 +11,7 @@ import pandas as pd
 import rioxarray as rxr
 import xarray as xr
 from joblib import Parallel, delayed
+from rasterio.transform import from_origin
 
 from .base import Base
 from .utils import meters_to_crs_unit, rm_files
@@ -80,19 +82,19 @@ class GEE(Base):
         """
         shp_4326 = self._reproject_shp(self._param("shp"))
 
-        # reproject images
-        img_col = img_col.map(
-            lambda img: img.reproject(
-                crs=f"EPSG:{self._param('shp').crs.to_epsg()}",
-                crsTransform=None,
-                scale=self._param("resolution"),
-            )
+        # compute the outline and transform
+        shp = self._param("shp")
+        res = meters_to_crs_unit(self._param("resolution"), shp)
+        transform = from_origin(shp.total_bounds[0], shp.total_bounds[3], res[0], res[1])
+        # geedim needs: (height, width)
+        outline = (
+            math.ceil(abs(shp.total_bounds[3] - shp.total_bounds[1]) / res[1]),
+            math.ceil(abs(shp.total_bounds[2] - shp.total_bounds[0]) / res[0]),
         )
 
         # clip images
-        self._region = ee.FeatureCollection(json.loads(shp_4326["geometry"].to_json()))
-        img_col = img_col.filterBounds(self._region)
-        img_col = img_col.map(lambda img: img.clip(self._region))
+        region = ee.FeatureCollection(json.loads(shp_4326["geometry"].to_json()))
+        img_col = img_col.filterBounds(region)
 
         col_size = img_col.size().getInfo()
         assert col_size > 0, "No images to download."
@@ -104,13 +106,11 @@ class GEE(Base):
         num_workers = self._param("num_workers")
         if num_workers > 40:
             warnings.warn(
-                f"{num_workers} workers is most likely too high. \
-                Setting it to 40 for downloading, see https://developers.google.com/earth-engine/guides/usage."
+                f"{num_workers} workers is most likely too high, see https://developers.google.com/earth-engine/guides/usage."
             )
-            num_workers = 40
         fns = Parallel(n_jobs=num_workers, backend="threading")(
             delayed(self._download_img)(
-                img_col, i, tmp_dir, self._param("shp"), self._param("resolution")
+                img_col, i, tmp_dir, self._param("shp"), region, transform, outline
             )
             for i in range(col_size)
         )
@@ -125,7 +125,7 @@ class GEE(Base):
         ds = self._prepare_cube(ds)
         return ds
 
-    def _download_img(self, img_col, i, tmp_dir, shp, resolution):
+    def _download_img(self, img_col, i, tmp_dir, shp, region, transform, shape):
         """Download a single image from the GEE ImageCollection."""
         img = ee.Image(img_col.get(i))
         # get the system id
@@ -152,8 +152,9 @@ class GEE(Base):
             img.download(
                 fileName,
                 crs=f"EPSG:{shp.crs.to_epsg()}",
-                scale=resolution,
-                region=self._region.geometry(),
+                crs_transform=transform,
+                region=region.geometry(),
+                shape=shape,
             )
         return fileName
 
@@ -162,14 +163,9 @@ class GEE(Base):
         if len(fns) < 1:
             raise ValueError("No files provided to merge.")
         date_pattern = r"\d{8}"
-        shp = self._param("shp")
-        resolution = self._param("resolution")
 
         def load_tif(fn):
             da = rxr.open_rasterio(fn)
-            if da.rio.crs != shp.crs:
-                res = meters_to_crs_unit(resolution, shp)
-                da = da.rio.reproject(shp.crs, resolution=res)
             time_str = re.findall(date_pattern, str(fn))[0]
             da = da.assign_coords(time=pd.to_datetime(time_str, format="%Y%m%d"))
             return da
