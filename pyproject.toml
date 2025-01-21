@@ -36,6 +36,10 @@ pc = [
     "odc-stac",
     "planetary-computer",
 ]
+cdse = [
+    "boto3",
+    "rasterio>=1.4.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/drnhhl/terragon"
