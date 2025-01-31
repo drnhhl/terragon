@@ -1,7 +1,6 @@
 import hashlib
 import json
 import math
-import re
 import warnings
 from typing import List, Union
 
@@ -24,6 +23,9 @@ class GEE(Base):
     :param Base: Base class defining the interface and some common methods
     :param credentials: unused, kept for compatibility, defaults to None
     """
+    _GEE_ID_PROP_NAME = "system:id"
+    _GEE_DATE_PROP_NAME = "system:time_start"
+    _GEE_ADD_BAND = "FILL_MASK"
 
     def __init__(self, credentials: dict = None) -> None:
         """Initialize class and GEE.
@@ -128,25 +130,28 @@ class GEE(Base):
     def _download_img(self, img_col, i, tmp_dir, shp, region, transform, shape):
         """Download a single image from the GEE ImageCollection."""
         img = ee.Image(img_col.get(i))
-        # get the system id
-        id_prop = next(
-            (prop for prop in img.propertyNames().getInfo() if "system:id" in prop),
-            None,
-        )
-        if not id_prop:
+        id_prop = self._get_img_property(img, self._GEE_ID_PROP_NAME)
+        date_prop = self._get_img_property(img, self._GEE_DATE_PROP_NAME)
+        if id_prop is None:
             warnings.warn(
                 f"Could not find system:id property in image {i}. \
-                Using consecutive numbers of images, but this can lead to problems wiht overwriting files."
+                Using consecutive numbers of images, but this can lead to problems with overwriting files."
             )
-            img_id = i
+            id_prop = i
         else:
-            img_id = img.get(id_prop).getInfo()
             # replace the / with _ to avoid problems with file paths
-            img_id = img_id.replace("/", "_")
+            id_prop = id_prop.replace("/", "_")
+        if date_prop is None:
+            warnings.warn(
+                f"Could not find system:time_start property in image {i}. \
+                Using the current date, but this can lead to problems."
+            )
+            # current date in ms
+            date_prop = int(pd.Timestamp.now().timestamp() * 1000)
 
         # create a unique filename through geometry since we are downloading clipped images
         geom_hash = hashlib.sha256(shp.geometry.iloc[0].wkt.encode("utf-8")).hexdigest()
-        fileName = tmp_dir.joinpath(f"{img_id}_{geom_hash}.tif")
+        fileName = tmp_dir.joinpath(f"{date_prop}_{id_prop}_{geom_hash}.tif")
         if not fileName.exists():
             img = geedim.MaskedImage(img)
             img.download(
@@ -158,28 +163,41 @@ class GEE(Base):
             )
         return fileName
 
+    def _get_img_property(self, img, prop_name):
+        """Get a property from an image."""
+        prop = img.get(prop_name).getInfo()
+        if prop is None:
+            # fallback to in
+            id_prop = next(
+                (prop for prop in img.propertyNames().getInfo() if prop_name in prop),
+                None,
+            )
+            if id_prop is not None:
+                prop = img.get(id_prop).getInfo()
+        return prop
+
     def _merge_gee_tifs(self, fns) -> xr.Dataset:
         """merge the tifs and crop them to the shp"""
         if len(fns) < 1:
             raise ValueError("No files provided to merge.")
-        date_pattern = r"\d{8}"
 
         def load_tif(fn):
             da = rxr.open_rasterio(fn)
-            time_str = re.findall(date_pattern, str(fn))[0]
-            da = da.assign_coords(time=pd.to_datetime(time_str, format="%Y%m%d"))
+            # first string is date, see _download_img
+            time_str = fn.name.split("_")[0]
+            da = da.assign_coords(time=pd.to_datetime(time_str, unit='ms'))
             return da
 
         out = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
             delayed(load_tif)(fn) for fn in fns
         )
 
-        ds = xr.concat(out, dim="time").compute()
+        ds = xr.concat(out, dim="time")
         ds = ds.sortby("time")
         ds = ds.to_dataset(dim="band")
         ds = ds.rename_vars(
             {dim: name for dim, name in zip(ds.data_vars.keys(), ds.attrs["long_name"])}
         )
-        if "FILL_MASK" in ds.data_vars:
-            ds = ds.drop_vars("FILL_MASK")
+        if self._GEE_ADD_BAND in ds.data_vars:
+            ds = ds.drop_vars(self._GEE_ADD_BAND)
         return ds
