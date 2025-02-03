@@ -23,6 +23,7 @@ class GEE(Base):
     :param Base: Base class defining the interface and some common methods
     :param credentials: unused, kept for compatibility, defaults to None
     """
+
     _GEE_ID_PROP_NAME = "system:id"
     _GEE_DATE_PROP_NAME = "system:time_start"
     _GEE_ADD_BAND = "FILL_MASK"
@@ -185,7 +186,7 @@ class GEE(Base):
             da = rxr.open_rasterio(fn)
             # first string is date, see _download_img
             time_str = fn.name.split("_")[0]
-            da = da.assign_coords(time=pd.to_datetime(time_str, unit='ms'))
+            da = da.assign_coords(time=pd.to_datetime(int(time_str), unit="ms"))
             return da
 
         out = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
