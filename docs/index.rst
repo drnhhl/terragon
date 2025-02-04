@@ -15,6 +15,7 @@
    source/base
    source/gee
    source/pc
+   source/cdse
 
 .. toctree::
    :hidden:
@@ -24,6 +25,7 @@
    demo_files/terragon_workflow
    demo_files/demo_gee
    demo_files/demo_pc
+   demo_files/demo_cdse
 
 .. toctree::
    :hidden:

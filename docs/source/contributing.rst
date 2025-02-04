@@ -12,7 +12,7 @@ Adding a new data source
 ------------------------
 Each data provider has its own class in the package and inherits the structure from the Base class in 'terragon/base.py'. A new data provider will get a new class in the same directory. The workflow of a data provider should match the general workflow described in the demo_files.
 
-Make sure to include tests (and later also documentation) as described in this document. 
+Make sure to include tests (and later also a demo and a documentation) as described in this document. 
 
 Linting and Styling
 -------------------
@@ -40,7 +40,7 @@ The testing uses the unittest framework, each data source has its own file in th
 
 Code Documentation
 ------------------
-The documentation builds on sphinx and readthedocs. Each class/data source has its own .rst file in the folder 'docs/source/'
+The documentation builds on sphinx and readthedocs. Each class/data source has its own .rst and demo file in the folders 'docs/source/' and 'docs/demo_files/'. They need to be listed in the 'index.rst'.
 
 .. code-block:: console
 

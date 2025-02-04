@@ -12,3 +12,5 @@ pystac-client
 # gee
 earthengine-api
 geedim
+# cdse
+boto3
