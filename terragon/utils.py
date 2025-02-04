@@ -2,6 +2,28 @@ import pyproj
 from shapely.geometry import Point
 
 
+def indices_are_identical(datasets: list) -> bool:
+    """Check if the indices from the xarray datasets are equal."""
+    if len(datasets) == 1:
+        return True
+
+    # get all indices
+    coords = list(set(key for ds in datasets for key in list(ds.indexes.keys())))
+
+    # check if all indices exist in all datasets
+    if not all(all(coord in ds.indexes for ds in datasets) for coord in coords):
+        return False
+
+    # check if all indices are equal
+    if not all(
+        all(datasets[0].indexes[coord].equals(ds.indexes[coord]) for ds in datasets)
+        for coord in coords
+    ):
+        return False
+
+    return True
+
+
 def rm_files(fns):
     for fn in fns:
         if fn.exists():
