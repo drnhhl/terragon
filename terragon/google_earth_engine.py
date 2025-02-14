@@ -51,14 +51,14 @@ class GEE(Base):
             "GEE does not have a collection endpoint. Please, visit https://developers.google.com/earth-engine/datasets/catalog"
         )
 
-    def search(self, rm_tmp_files=True, **kwargs) -> ee.ImageCollection:
-        """Search for items in the GEE collections. For a description of the kwargs parameters see the Base class function.
+    def search(self, *args, rm_tmp_files=True, **kwargs) -> ee.ImageCollection:
+        """Search for items in the GEE collections. For a description of the args/kwargs parameters see the Base class function.
 
         :param rm_tmp_files: remove temporarily downloaded files after creating the minicube, defaults to True
         :raises ValueError: when parameters are missing or in the wrong format
         :return: ee.ImageCollection
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         self._parameters.update({"rm_tmp_files": rm_tmp_files})
 
         img_col = ee.ImageCollection(self._param("collection"))

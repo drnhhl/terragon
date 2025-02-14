@@ -109,13 +109,14 @@ class CDSE(Base):
 
     def search(
         self,
+        *args,
         resampling=rasterio.enums.Resampling.nearest,
         use_virtual_rasterio_file=True,
         rm_tmp_files=True,
         filter_asset_path={"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"},
         **kwargs,
     ):
-        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the kwargs parameters see the Base class function.
+        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the args/kwargs parameters see the Base class function.
 
         :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
         :param use_virtual_rasterio_file: use rasterio virtual file function when True, when False whole file is downloaded, defaults to True
@@ -126,7 +127,7 @@ class CDSE(Base):
 
         :return: a list of items
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         self._parameters.update(
             {
                 "rm_tmp_files": rm_tmp_files,
