@@ -1,3 +1,5 @@
+import warnings
+
 import pyproj
 from shapely.geometry import Point
 
@@ -22,6 +24,31 @@ def indices_are_identical(datasets: list) -> bool:
         return False
 
     return True
+
+
+def align_coords(datasets, shp, resampling):
+    """unify the crs and indices of the datasets. Often the coordinates differ by a very small amount
+    due to rounding errors, xarray will merge these into one dataframe, here the unify them to prevent
+    empty pixels in the dataset."""
+    # make sure the coordinates are the same and match (e.g. if there are other crs)
+    if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]) or not indices_are_identical(
+        datasets
+    ):
+        crs_list = [ds.rio.crs for ds in datasets]
+        # match all to master (first shp crs)
+        idx = [i for i, crs in enumerate(crs_list) if crs == shp.crs]
+        if len(idx) == 0:
+            warnings.warn(
+                f"No matching crs found and all crs are different. Using first crs {crs_list[0]} as master."
+            )
+            idx = 0
+        else:
+            idx = idx[0]
+        datasets = [
+            (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
+            for i, ds in enumerate(datasets)
+        ]
+    return datasets
 
 
 def rm_files(fns):

@@ -10,10 +10,11 @@ import pandas as pd
 import rioxarray as rxr
 import xarray as xr
 from joblib import Parallel, delayed
+from rasterio.enums import Resampling
 from rasterio.transform import from_origin
 
 from .base import Base
-from .utils import meters_to_crs_unit, rm_files
+from .utils import align_coords, meters_to_crs_unit, rm_files
 
 
 class GEE(Base):
@@ -192,6 +193,8 @@ class GEE(Base):
         out = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
             delayed(load_tif)(fn) for fn in fns
         )
+
+        out = align_coords(out, self._param("shp"), Resampling.nearest)
 
         ds = xr.concat(out, dim="time")
         ds = ds.sortby("time")

@@ -16,7 +16,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import indices_are_identical, meters_to_crs_unit
+from .utils import align_coords, meters_to_crs_unit
 
 supported_collections = [
     "COP-DEM",
@@ -352,9 +352,9 @@ class CDSE(Base):
             ),
         )
 
-        time_data = self._align_coords(time_data, shp, resampling)
+        time_data = align_coords(time_data, shp, resampling)
 
-        # add time coords (would have been removed by reproject_match in _align_coords)
+        # add time coords (would have been removed by reproject_match in align_coords)
         time_data = [
             ds.assign_coords(time=("time", pd.to_datetime([time]).tz_convert(None)))
             for ds, time in zip(time_data, times)
@@ -398,7 +398,7 @@ class CDSE(Base):
                     f"Multiple files found for band {band}: {f_paths}.\nAdding them as new bands."
                 )
                 if not all([ds.rio.crs == datasets[0].rio.crs for ds in datasets]):
-                    datasets = self._align_coords(datasets, shp, resampling)
+                    datasets = align_coords(datasets, shp, resampling)
                 if not all(
                     [ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]
                 ):
@@ -451,28 +451,6 @@ class CDSE(Base):
         ds = xr.combine_by_coords(band_data)
 
         return ds
-
-    def _align_coords(self, datasets, shp, resampling):
-        """unify the crs and indices of the datasets."""
-        # make sure the coordinates are the same and match (e.g. if there are other crs)
-        if not all(
-            [ds.rio.crs == datasets[0].rio.crs for ds in datasets]
-        ) or not indices_are_identical(datasets):
-            crs_list = [ds.rio.crs for ds in datasets]
-            # match all to master (first shp crs)
-            idx = [i for i, crs in enumerate(crs_list) if crs == shp.crs]
-            if len(idx) == 0:
-                warnings.warn(
-                    f"No matching crs found and all crs are different. Using first crs {crs_list[0]} as master."
-                )
-                idx = 0
-            else:
-                idx = idx[0]
-            datasets = [
-                (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
-                for i, ds in enumerate(datasets)
-            ]
-        return datasets
 
     def _align_resolutions(self, datasets, shp, resolution, resampling):
         """unify the resolutions of the list of the xr.Datasets."""
