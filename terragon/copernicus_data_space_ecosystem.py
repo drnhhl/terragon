@@ -18,19 +18,6 @@ from shapely.geometry import box
 from .base import Base
 from .utils import align_coords, meters_to_crs_unit
 
-supported_collections = [
-    "COP-DEM",
-    "GLOBAL-MOSAICS",
-    "LANDSAT-5",
-    "LANDSAT-7",
-    "LANDSAT-8-ESA",
-    "TERRAAQUA",
-    "S2GLC",
-    "SENTINEL-1",
-    "SENTINEL-1-RTC",
-    "SENTINEL-2",
-]
-
 
 class CDSE(Base):
     """Class to interact with the Copernicus Data Space Ecosystem. The images are downloaded from the AWS bucket.
@@ -38,7 +25,8 @@ class CDSE(Base):
     Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA,
     TERRAAQUA, S2GLC, SENTINEL-1, SENTINEL-1-RTC, SENTINEL-2.
 
-    :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
+    :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}.
+    If None, it will fallback to the credential handling from boto3/rasterio.
     :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
     :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
     """
@@ -58,6 +46,19 @@ class CDSE(Base):
         ".DT2",
         ".DT1",
         ".IMG",
+    ]
+
+    _supported_collections = [
+        "COP-DEM",
+        "GLOBAL-MOSAICS",
+        "LANDSAT-5",
+        "LANDSAT-7",
+        "LANDSAT-8-ESA",
+        "TERRAAQUA",
+        "S2GLC",
+        "SENTINEL-1",
+        "SENTINEL-1-RTC",
+        "SENTINEL-2",
     ]
 
     def __init__(
@@ -81,6 +82,9 @@ class CDSE(Base):
                 raise ValueError(
                     "aws_access_key_id or aws_secret_access_key not in credentials, could not initialize."
                 )
+        else:
+            # fallback to credentials saved in the environment/files from aws
+            credentials = {"aws_access_key_id": None, "aws_secret_access_key": None}
         self.credentials = credentials
 
     def retrieve_collections(self, filter_by_name: str = None):
@@ -101,7 +105,7 @@ class CDSE(Base):
                     collection for collection in collections if filter_by_name in collection.lower()
                 ]
             warnings.warn(
-                f"Currently we only support the following collections: {supported_collections}"
+                f"Currently we only support the following collections: {self._supported_collections}"
             )
             return collections
         else:
@@ -109,13 +113,14 @@ class CDSE(Base):
 
     def search(
         self,
+        *args,
         resampling=rasterio.enums.Resampling.nearest,
         use_virtual_rasterio_file=True,
         rm_tmp_files=True,
         filter_asset_path={"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"},
         **kwargs,
     ):
-        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the kwargs parameters see the Base class function.
+        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the args/kwargs parameters see the Base class function.
 
         :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
         :param use_virtual_rasterio_file: use rasterio virtual file function when True, when False whole file is downloaded, defaults to True
@@ -126,7 +131,7 @@ class CDSE(Base):
 
         :return: a list of items
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         self._parameters.update(
             {
                 "rm_tmp_files": rm_tmp_files,
@@ -136,8 +141,8 @@ class CDSE(Base):
             }
         )
 
-        if self._param("collection") not in supported_collections:
-            warnings.warn(f"Currently we only support collections: {supported_collections}")
+        if self._param("collection") not in self._supported_collections:
+            warnings.warn(f"Currently we only support collections: {self._supported_collections}")
         if self._param("num_workers") > 4:
             warnings.warn(
                 "More than 4 workers are not recommended, because only 4 concurrent connections are allowed: https://documentation.dataspace.copernicus.eu/Quotas.html."
@@ -165,7 +170,7 @@ class CDSE(Base):
         if len(items) == 0:
             raise ValueError(f"No items found for {self._param('collection')} between {datetime}.")
 
-        # apply filters #
+        # apply filters
         return self._filter_items(items, self._param("filter"))
 
     def _filter_items(self, items, filter):

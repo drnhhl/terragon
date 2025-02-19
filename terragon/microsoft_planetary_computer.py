@@ -60,13 +60,13 @@ class PC(Base):
         else:
             raise RuntimeError("Failed to retrieve collections")
 
-    def search(self, **kwargs):
-        """Search for items in the Planetary Computer collections. For a description of the kwargs parameters see the Base class function.
+    def search(self, *args, **kwargs):
+        """Search for items in the Planetary Computer collections. For a description of the args/kwargs parameters see the Base class function.
 
         :raises ValueError: when no items are found or parameters are in the wrong format
         :return: a list of items
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
 
         catalog = pystac_client.Client.open(
