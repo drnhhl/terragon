@@ -25,8 +25,7 @@ class CDSE(Base):
     Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA,
     TERRAAQUA, S2GLC, SENTINEL-1, SENTINEL-1-RTC, SENTINEL-2.
 
-    :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}.
-    If None, it will fallback to the credential handling from boto3/rasterio.
+    :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}. If None, it will fallback to the credential handling from boto3/rasterio.
     :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
     :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
     """
@@ -69,7 +68,7 @@ class CDSE(Base):
     ):
         """Initialize class and save the credentials.
 
-        :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}
+        :param credentials: credentials to authenticate, expected format: {'aws_access_key_id': <id>, 'aws_secret_access_key': <key>}. If None, it will fallback to the credential handling from boto3/rasterio.
         :param base_url: the URL for the STAC catalog, defaults to "https://catalogue.dataspace.copernicus.eu/stac/"
         :param end_point_url: the URL for the data endpoint, defaults to "https://eodata.dataspace.copernicus.eu"
         :raises ValueError: when the credentials are in the wrong format
