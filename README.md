@@ -27,10 +27,10 @@ You want to download Earth Observation data but don't want to spend hours just f
 We currently support these data providers:
 - [Planetary Computer (pc)](https://planetarycomputer.microsoft.com/catalog)
 - [Google Earth Engine (gee)](https://developers.google.com/earth-engine/datasets)
+- [Copernicus Data Space Ecosystem (cdse)](https://dataspace.copernicus.eu/explore-data/data-collections) (not all collections supported)
 
 Coming soon:
 - [Alaska Satellite Facility (asf)](https://asf.alaska.edu/how-to/data-basics/datasets-available-from-asf-sar-daac/)
-- [Copernicus Data Space Ecosystem (cdse)](https://dataspace.copernicus.eu/explore-data/data-collections)
 
 ## Usage
 ### Installation
@@ -75,14 +75,10 @@ Other data backends work with the same principle, check out the [Demos](https://
 ## Limitations
 Be aware that depending on the collection the data is not mosaicked.
 
-## Limitations
-Be aware that depending on the collection the data is not mosaicked.
-
-## Limitations
-Be aware that depending on the collection the data is not mosaicked.
-
 ## Contribute
 You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
+
+We are looking for contributors to add more collections to CDSE. Please get in touch if you are interested.
 
 ## License
 This work is licensed under the MIT license.
