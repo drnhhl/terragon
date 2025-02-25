@@ -203,7 +203,9 @@ class CDSE(Base):
         for i in range(1, 100):
             _data = data.copy()
             _data["page"] = i
-            page = requests.post(urljoin(self.base_url, "search"), json=_data).json()
+            response = requests.post(urljoin(self.base_url, "search"), json=_data)
+            response.raise_for_status()
+            page = response.json()
 
             if "features" not in page:
                 raise ValueError(f"There was an error with the request: {page}")
@@ -212,7 +214,7 @@ class CDSE(Base):
             else:
                 items.extend(page["features"])
 
-            if i == 100:
+            if i == 99:
                 raise ValueError(
                     "Max number of pages reached. Consider using a smaller time frame."
                 )
@@ -501,7 +503,7 @@ class CDSE(Base):
             aws_secret_access_key=self.credentials["aws_secret_access_key"],
         )
         with rasterio.env.Env(session=session, AWS_VIRTUAL_HOSTING=False):
-            clipped = self._clip_to_region("s3://eodata/" + str(f_path), shp, resampling)
+            clipped = self._clip_to_region("s3://eodata/" + f_path.as_posix(), shp, resampling)
             return clipped
 
     def _download_file_tile(self, f_path, shp, resampling):
@@ -516,7 +518,7 @@ class CDSE(Base):
                 region_name="default",
             ).resource("s3", endpoint_url=self.end_point_url)
 
-            _s3.Bucket("eodata").download_file(str(f_path), download_path)
+            _s3.Bucket("eodata").download_file(f_path.as_posix(), download_path)
 
         # clip to shp
         clipped = self._clip_to_region(download_path, shp, resampling)
@@ -571,7 +573,7 @@ class CDSE(Base):
         # apply regex path filters
         if filter_asset_path and collection in filter_asset_path:
             pattern = re.compile(filter_asset_path[collection])
-            paths = [path for path in paths if re.search(pattern, str(path))]
+            paths = [path for path in paths if re.search(pattern, path.as_posix())]
             if len(paths) == 0:
                 raise RuntimeError(
                     "There are no files matching the filter_asset_path: ",
@@ -618,16 +620,15 @@ class CDSE(Base):
                     shp_crs.bounds.maxy.item() + margin[1],
                 )
                 gdf = gpd.GeoDataFrame(geometry=[shapely_box], crs=src_crs)
-                ds = ds.rio.clip_box(*list(gdf.total_bounds))
+                clipped = ds.rio.clip_box(*list(gdf.total_bounds))
                 # then reproject to shp crs
-                ds = ds.rio.reproject(shp.crs, resampling=resampling)
-                ds = ds.rio.clip_box(*list(shp.total_bounds))
+                clipped = clipped.rio.reproject(shp.crs, resampling=resampling)
+                clipped = clipped.rio.clip_box(*list(shp.total_bounds))
             else:
-                ds = ds.rio.clip_box(*list(shp.total_bounds))
-            ds.load()
+                clipped = ds.rio.clip_box(*list(shp.total_bounds))
+            clipped.load()
             ds.close()
+            return clipped
         except rxr.exceptions.NoDataInBounds:
             warnings.warn("No data found in bounds.")
-            ds = None
-
-        return ds
+            return None

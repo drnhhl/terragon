@@ -29,6 +29,19 @@ class TestCDSE(_TestBase, unittest.TestCase):
         args["bands"] = []
         self.assertRaises(ValueError, self.tg.create, **args)
 
+    def test_not_using_rasterio_virt_env(self):
+        """test when the rasterio environment is not used"""
+        args = self.arguments.copy()
+        args["bands"] = ["B02"]
+        args["use_virtual_rasterio_file"] = False
+        ds = self.tg.create(**args)
+
+        self.assertTrue(
+            len(ds.time) == self.nr_time_steps
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
+        )
+
     def test_s2_mosaic(self):
         """test Sentinel-2 data"""
         args = self.arguments.copy()
