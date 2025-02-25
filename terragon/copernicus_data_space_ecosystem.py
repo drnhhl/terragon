@@ -518,7 +518,7 @@ class CDSE(Base):
                 region_name="default",
             ).resource("s3", endpoint_url=self.end_point_url)
 
-            _s3.Bucket("eodata").download_file(str(f_path), download_path)
+            _s3.Bucket("eodata").download_file(f_path.as_posix(), download_path)
 
         # clip to shp
         clipped = self._clip_to_region(download_path, shp, resampling)
@@ -620,16 +620,15 @@ class CDSE(Base):
                     shp_crs.bounds.maxy.item() + margin[1],
                 )
                 gdf = gpd.GeoDataFrame(geometry=[shapely_box], crs=src_crs)
-                ds = ds.rio.clip_box(*list(gdf.total_bounds))
+                clipped = ds.rio.clip_box(*list(gdf.total_bounds))
                 # then reproject to shp crs
-                ds = ds.rio.reproject(shp.crs, resampling=resampling)
-                ds = ds.rio.clip_box(*list(shp.total_bounds))
+                clipped = clipped.rio.reproject(shp.crs, resampling=resampling)
+                clipped = clipped.rio.clip_box(*list(shp.total_bounds))
             else:
-                ds = ds.rio.clip_box(*list(shp.total_bounds))
-            ds.load()
+                clipped = ds.rio.clip_box(*list(shp.total_bounds))
+            clipped.load()
             ds.close()
+            return clipped
         except rxr.exceptions.NoDataInBounds:
             warnings.warn("No data found in bounds.")
-            ds = None
-
-        return ds
+            return None
