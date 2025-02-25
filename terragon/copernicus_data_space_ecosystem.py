@@ -501,7 +501,7 @@ class CDSE(Base):
             aws_secret_access_key=self.credentials["aws_secret_access_key"],
         )
         with rasterio.env.Env(session=session, AWS_VIRTUAL_HOSTING=False):
-            clipped = self._clip_to_region("s3://eodata/" + str(f_path), shp, resampling)
+            clipped = self._clip_to_region("s3://eodata/" + f_path.as_posix(), shp, resampling)
             return clipped
 
     def _download_file_tile(self, f_path, shp, resampling):
@@ -571,7 +571,7 @@ class CDSE(Base):
         # apply regex path filters
         if filter_asset_path and collection in filter_asset_path:
             pattern = re.compile(filter_asset_path[collection])
-            paths = [path for path in paths if re.search(pattern, str(path))]
+            paths = [path for path in paths if re.search(pattern, path.as_posix())]
             if len(paths) == 0:
                 raise RuntimeError(
                     "There are no files matching the filter_asset_path: ",
