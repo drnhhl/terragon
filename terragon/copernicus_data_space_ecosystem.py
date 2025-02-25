@@ -203,7 +203,9 @@ class CDSE(Base):
         for i in range(1, 100):
             _data = data.copy()
             _data["page"] = i
-            page = requests.post(urljoin(self.base_url, "search"), json=_data).json()
+            response = requests.post(urljoin(self.base_url, "search"), json=_data)
+            response.raise_for_status()
+            page = response.json()
 
             if "features" not in page:
                 raise ValueError(f"There was an error with the request: {page}")
@@ -212,7 +214,7 @@ class CDSE(Base):
             else:
                 items.extend(page["features"])
 
-            if i == 100:
+            if i == 99:
                 raise ValueError(
                     "Max number of pages reached. Consider using a smaller time frame."
                 )
