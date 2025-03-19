@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.1.1
+------
+- CDSE - AWS cross platform path compatibility
+- PC - y coordinates flipped, download of netcdf with correct file extension, add odc kwargs
 v0.1.0
 ------
 - add support for Copernicus Data Space Ecosystem (CDSE) API
