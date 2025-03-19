@@ -101,7 +101,8 @@ class GEE(Base):
         img_col = img_col.filterBounds(region)
 
         col_size = img_col.size().getInfo()
-        assert col_size > 0, "No images to download."
+        if col_size < 1:
+            raise ValueError("No images to download.")
         img_col = img_col.toList(col_size)
         tmp_dir = self._param("download_folder", raise_error=not self._param("create_minicube"))
         tmp_dir.mkdir(parents=True, exist_ok=True)
