@@ -60,13 +60,16 @@ class PC(Base):
         else:
             raise RuntimeError("Failed to retrieve collections")
 
-    def search(self, *args, **kwargs):
+    def search(self, odc_stac_kwargs={}, *args, **kwargs):
         """Search for items in the Planetary Computer collections. For a description of the args/kwargs parameters see the Base class function.
 
+        :param odc_stac_kwargs: additional parameters for the odc.stac.load function, defaults to {}
         :raises ValueError: when no items are found or parameters are in the wrong format
         :return: a list of items
         """
         super().search(*args, **kwargs)
+        self._parameters.update({"odc_stac_kwargs": odc_stac_kwargs})
+
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
 
         catalog = pystac_client.Client.open(
@@ -95,7 +98,8 @@ class PC(Base):
         :param items: items to download
         :return: xarray.Dataset or list of filenames
         """
-        assert len(items) > 0, "No images to download."
+        if len(items) < 1:
+            raise ValueError("No items to download")
 
         shp = self._param("shp")
         bounds = list(shp.bounds.values[0])
@@ -106,9 +110,10 @@ class PC(Base):
                 items,
                 bands=self._param("bands"),
                 crs=shp.crs,
-                resolution=odc.geo.resxy_(*res),
+                resolution=odc.geo.resxy_(res[0], -res[1]),
                 x=(bounds[0], bounds[2]),
                 y=(bounds[1], bounds[3]),
+                **self._param("odc_stac_kwargs", default={}),
             )
             ds = self._prepare_cube(ds)
             return ds
@@ -117,9 +122,10 @@ class PC(Base):
             if bands is None:
                 bands = items[0].assets.keys()
             self._param("download_folder").mkdir(parents=True, exist_ok=True)
+            file_ext = "nc" if "netcdf" in items[0].assets[bands[0]].media_type else "tiff"
             fns = [
                 self._param("download_folder").joinpath(
-                    f"{self._param('collection')}_{band}_{item.id}.tif"
+                    f"{self._param('collection')}_{band}_{item.id}.{file_ext}"
                 )
                 for item in items
                 for band in bands
