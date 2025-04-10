@@ -19,5 +19,9 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
         from .copernicus_data_space_ecosystem import CDSE
 
         return CDSE(credentials, **kwargs)
+    elif api == "asf" or api == "alaska_satellite_facility":
+        from .alaska_satellite_facility import ASF
+
+        return ASF(credentials, **kwargs)
     else:
         raise ValueError(f'API {api} not supported. Please use "pc", "gee", or "cdse".')
