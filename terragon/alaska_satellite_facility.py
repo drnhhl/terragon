@@ -1,7 +1,9 @@
 import logging
+import shutil
 import warnings
 from datetime import datetime
 from pathlib import Path
+from zipfile import ZipFile
 
 import asf_search as asf
 import pandas as pd
@@ -11,11 +13,6 @@ import xarray as xr
 from joblib import Parallel, delayed
 from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
-from zipfile import ZipFile
-import boto3
-import requests
-from urllib.parse import urlparse
-import shutil
 
 from .base import Base
 from .utils import indices_are_identical, meters_to_crs_unit
@@ -98,7 +95,7 @@ class ASF(Base):
         self._parameters.update(
             {
                 "resampling": resampling,
-                "rm_tmp_files": rm_tmp_files,             
+                "rm_tmp_files": rm_tmp_files,
             }
         )
 
@@ -135,76 +132,16 @@ class ASF(Base):
 
         return items
 
-    def _get_s3_credentials(self):
-        """
-        Retrieve temporary S3 credentials for downloading files from ASF.
-
-        Returns:
-            dict: Temporary S3 credentials.
-        """
-        # Use the s3_credentials_endpoint from the credentials (or default to the ASF endpoint)
-        tea_url = self.credentials.get(
-            "s3_credentials_endpoint", "https://sentinel1.asf.alaska.edu/s3credentials"
-        )
-        # The EDL Bearer token must be provided under "edl_token"
-        edl_token = self.credentials.get("asf_edl_token")
-        if not edl_token:
-            raise ValueError("EDL token ('edl_token') is required in credentials to retrieve S3 credentials.")
-        
-        # Make an HTTP GET request with the Authorization header using the Bearer token.
-        response = requests.get(
-            tea_url,
-            headers={
-                "Authorization": f"Bearer {edl_token}",
-                "app-name": "my-application"
-            }
-        )
-        response.raise_for_status()
-        creds = response.json()
-        return creds
-
-    def _download_via_s3(self, s3_url, s3_creds, output_dir):
-        """
-        Download a file from S3 using temporary credentials and in-region settings.
-
-        Args:
-            s3_url (str): The S3 URL to download (e.g., "s3://bucket-name/path/to/object.zip").
-            s3_creds (dict): A dictionary containing temporary S3 credentials obtained via _get_s3_credentials.
-            output_dir (Path): The local directory where the file will be saved.
-
-        Returns:
-            Path: The local file path where the file was downloaded.
-        """
-        # Parse the S3 URL to extract bucket name and key
-        parsed_url = urlparse(s3_url)
-        bucket_name = parsed_url.netloc  # For example: 'asf-ngap2w-p-s1-grd-7d1b4348'
-        key = parsed_url.path.lstrip("/")  # e.g., 'S1B_IW_GRDH_1SDV_20210102T051748_20210102T051813_024971_02F8D2_83EC.zip'
-
-        # Define the local file path using the basename of the key
-        local_file_path = output_dir / Path(key).name
-
-        # Create your S3 resource using the provided credentials
-        _s3 = boto3.Session(
-            aws_access_key_id=s3_creds["accessKeyId"],
-            aws_secret_access_key=s3_creds["secretAccessKey"],
-            aws_session_token=s3_creds["sessionToken"],
-            region_name="us-west-2",
-        ).resource("s3")
-        
-        _s3.Bucket(bucket_name).download_file(key, str(local_file_path))
-
-        return local_file_path
-    
     def _download_via_http(self, url, session, output_dir, chunk_size=131072):
         """
         Download a file from an HTTP URL using requests and save it locally.
-        
+
         Args:
             url (str): HTTP URL to download.
             session: A requests.Session (or similar) for the download.
             output_dir (Path): Local directory where the file will be saved.
             chunk_size (int): Size of each chunk in bytes.
-        
+
         Returns:
             Path: Path to the downloaded local file.
         """
@@ -217,34 +154,36 @@ class ASF(Base):
                         f.write(chunk)
 
         return local_file_path
-    
+
     def _extract_files(self, zip_path, output_dir, bands=None):
         """
         Extract TIFF files from a zip archive using multiple threads,
         flattening the directory structure so that all files are extracted directly
         into output_dir (i.e. without recreating any subfolders).
-        
+
         Args:
             zip_path (Path): Path to the zip archive.
             output_dir (Path): Directory to extract files.
             bands (list, optional): List of band identifiers to filter.
-        
+
         Returns:
             dict: Dictionary mapping band names to file paths.
         """
         # Open the zip file once to get the list of relevant file names.
-        with ZipFile(zip_path, 'r') as z:
+        with ZipFile(zip_path, "r") as z:
             file_names = [name for name in z.namelist() if name.lower().endswith((".tiff", ".tif"))]
-        
+
         if bands:
             bands_lower = [band.lower() for band in bands]
-            file_names = [name for name in file_names if any(b in name.lower() for b in bands_lower)]
+            file_names = [
+                name for name in file_names if any(b in name.lower() for b in bands_lower)
+            ]
         else:
             bands_lower = []
 
         def extract_file(file_name):
             # Each worker re-opens the zip file independently.
-            with ZipFile(zip_path, 'r') as z:
+            with ZipFile(zip_path, "r") as z:
                 # Read the file contents from the zip.
                 data = z.read(file_name)
             # Write the file directly to output_dir using only its basename.
@@ -255,27 +194,27 @@ class ASF(Base):
             return band_name, str(local_file)
 
         # Use joblib to run extraction in parallel and collect results.
-        results = Parallel(n_jobs=-1)(
-            delayed(extract_file)(file_name) for file_name in file_names
-        )
+        results = Parallel(n_jobs=-1)(delayed(extract_file)(file_name) for file_name in file_names)
 
         # Aggregate the results into a dictionary.
         band_files = {band: file_path for band, file_path in results}
         return band_files
 
-    def _download_item(self, item, session, output_dir, s3_creds=None, bands=None, chunk_size=131072):
+    def _download_item(
+        self, item, session, output_dir, s3_creds=None, bands=None, chunk_size=131072
+    ):
         """
         Download the entire zip file for an ASF item—using S3 if an "S3Url" property is available,
         falling back to HTTP if not. Once downloaded, extract only the desired TIFF files directly into output_dir
         (flattening any subfolder structure).
-        
+
         Args:
             item: ASF item to download.
             session: Session for HTTP downloads.
             output_dir (Path): Directory where files are saved.
             bands (list, optional): List of band strings to filter for.
             chunk_size (int): Chunk size in bytes for downloads.
-        
+
         Returns:
             The updated item with its 'band_files' property updated.
         """
@@ -289,7 +228,7 @@ class ASF(Base):
 
         item_dir = output_dir / item_id
         item.properties["tmp_folder"] = str(item_dir)
-        
+
         band_files = {}
         if item_dir.exists():
             for band in bands or []:
@@ -305,7 +244,7 @@ class ASF(Base):
 
         # Create the directory for this item.
         item_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Always use HTTP download - S3 is not running so far - but maybe later on
         url = item.properties.get("url")
         if url is None:
@@ -319,16 +258,16 @@ class ASF(Base):
 
         # Remove the downloaded zip file.
         local_zip_path.unlink()
-        
+
         return item
 
     def download(self, items):
         """
         Download ASF items and optionally merge them into a data cube.
-        
+
         Args:
             items: List of ASF items to download.
-        
+
         Returns:
             Either an xarray dataset (if create_minicube is True) or a list of file paths.
         """
@@ -354,7 +293,7 @@ class ASF(Base):
         if self._param("create_minicube"):
             ds = self._create_minicube(items)
             ds = self._prepare_cube(ds)
-            
+
             if self._param("rm_tmp_files"):
                 # Force evaluation/computation so the dataset no longer depends on the temporary files.
                 ds = ds.compute()
@@ -370,12 +309,14 @@ class ASF(Base):
         else:
             fps = []
             for item in items:
-                ds = self._load_band_data(item, self._param("shp"), self._param("resolution"), self._param("resampling"))
+                ds = self._load_band_data(
+                    item, self._param("shp"), self._param("resolution"), self._param("resampling")
+                )
                 fp = output_dir / f"{item.properties.get("fileID")}.tiff"
                 ds.rio.to_raster(fp)
                 fps.append(fp)
-            return fps  
-    
+            return fps
+
     def _load_band_data(self, item, shp, resolution, resampling):
         """
         Load and preprocess band data for a single item.
@@ -394,7 +335,7 @@ class ASF(Base):
         # Iterate over all band files in the item
         for band, fp in item.properties.get("band_files", {}).items():
             try:
-                with rasterio.Env(GTIFF_SRS_SOURCE="EPSG", OSR_USE_NON_DEPRECATED='NO'):
+                with rasterio.Env(GTIFF_SRS_SOURCE="EPSG", OSR_USE_NON_DEPRECATED="NO"):
                     with rasterio.open(fp) as src:
                         gcps, crs = src.get_gcps()
                         with WarpedVRT(src, src_crs=crs, resampling=resampling) as vrt:
@@ -402,7 +343,9 @@ class ASF(Base):
                                 # Reproject and clip the data as needed
                                 da = da.rio.reproject(shp.crs)
                                 da = da.rio.clip_box(*shp.total_bounds)
-                                da = da.load() # Force full loading of the data into memory, which releases file handles
+                                da = (
+                                    da.load()
+                                )  # Force full loading of the data into memory, which releases file handles
                                 bands.append(band)
                                 band_data.append(da)
             except Exception as e:
@@ -464,7 +407,9 @@ class ASF(Base):
         # Align datasets and concatenate along time
         time_data = self._align_coords(time_data, shp, resampling)
         time_data = [
-            ds.assign_coords(time=pd.to_datetime(time, unit='ns' if isinstance(time, int) else None))
+            ds.assign_coords(
+                time=pd.to_datetime(time, unit="ns" if isinstance(time, int) else None)
+            )
             for ds, time in zip(time_data, times)
         ]
 

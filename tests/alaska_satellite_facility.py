@@ -1,22 +1,21 @@
 import os
 import unittest
-import terragon
 
 from base import _TestBase
 from utils import load_env_variables
+
+import terragon
+
 
 class TestASF(_TestBase, unittest.TestCase):
     def setUp(self):
         super().setUp()
         load_env_variables()
         credentials = {
-            "asf_username": os.getenv("ASF_USERNAME"), 
+            "asf_username": os.getenv("ASF_USERNAME"),
             "asf_password": os.getenv("ASF_PASSWORD"),
-            "asf_edl_token": os.getenv("ASF_EDL_TOKEN"),
-            "aws_access_key_id": os.getenv("AWS_ACCESS_KEY_ID"),
-            "aws_secret_access_key": os.getenv("AWS_SECRET_ACCESS_KEY")
         }
-        self.tg = terragon.init('asf', credentials=credentials)
+        self.tg = terragon.init("asf", credentials=credentials)
         self.arguments["start_date"] = "2021-01-01"
         self.arguments["end_date"] = "2021-01-02"
         self.arguments["collection"] = "SENTINEL-1"
@@ -37,7 +36,7 @@ class TestASF(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 3 # 3 items in 2009 
+            len(ds.time) == 3  # 3 items in 2009
             and self.width - 1 <= len(ds.x) <= self.width + 1
             and self.height - 1 <= len(ds.y) <= self.height + 1
         )
@@ -52,12 +51,13 @@ class TestASF(_TestBase, unittest.TestCase):
         args["filter"] = {}
 
         ds = self.tg.create(**args)
-        
+
         self.assertTrue(
             len(ds.time) == self.nr_time_steps
             and self.width - 1 <= len(ds.x) <= self.width + 1
             and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
