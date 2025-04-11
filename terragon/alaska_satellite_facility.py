@@ -201,11 +201,11 @@ class ASF(Base):
         return band_files
 
     def _download_item(
-        self, item, session, output_dir, s3_creds=None, bands=None, chunk_size=131072
+        self, item, session, output_dir, bands=None, chunk_size=131072
     ):
         """
-        Download the entire zip file for an ASF item—using S3 if an "S3Url" property is available,
-        falling back to HTTP if not. Once downloaded, extract only the desired TIFF files directly into output_dir
+        Download the entire zip file for an ASF item using HTTP if not. 
+        Once downloaded, extract only the desired TIFF files directly into output_dir
         (flattening any subfolder structure).
 
         Args:
@@ -245,7 +245,6 @@ class ASF(Base):
         # Create the directory for this item.
         item_dir.mkdir(parents=True, exist_ok=True)
 
-        # Always use HTTP download - S3 is not running so far - but maybe later on
         url = item.properties.get("url")
         if url is None:
             raise ValueError("No URL found in item properties for downloading.")
@@ -282,11 +281,9 @@ class ASF(Base):
         num_workers = self._get_param("num_workers", default=1)
         logging.info(f"Downloading {len(items)} items using {num_workers} worker(s).")
 
-        s3_creds = self._get_s3_credentials()
-
         # Parallelize the download per item.
         items = Parallel(n_jobs=num_workers, backend="threading", verbose=0)(
-            delayed(self._download_item)(item, session, output_dir, s3_creds, bands)
+            delayed(self._download_item)(item, session, output_dir, bands)
             for item in items
         )
 
