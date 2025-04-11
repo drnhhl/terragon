@@ -1,7 +1,6 @@
 import logging
 import shutil
 import warnings
-from datetime import datetime
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -20,7 +19,10 @@ from .utils import align_coords, align_resolutions
 supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
 
 class ASF(Base):
-    def __init__(self, credentials: dict = None):
+    def __init__(
+        self, 
+        credentials: dict = None,
+        chunk_size: int = 131072):
         """
         Initialize the ASF class for searching, downloading, and processing ASF datasets.
 
@@ -30,6 +32,7 @@ class ASF(Base):
         super().__init__()
         self.credentials = credentials or {}
         self.session = None
+        self.chunk_size = chunk_size
 
     def _init_asf_session(self):
         """Authenticate and initialize an ASF session."""
@@ -100,15 +103,15 @@ class ASF(Base):
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
         bounds_wkt = box(*bounds_4326).wkt
 
-        # Define time range for the search
+        # Define time range for the search using pandas datetime
         start_date = self._param("start_date")
         end_date = self._param("end_date")
         if "T" not in start_date:
             start_date += "T00:00:00.000"
-        start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%S.%f")
+        start_date = pd.to_datetime(start_date, format="%Y-%m-%dT%H:%M:%S.%f")
         if "T" not in end_date:
             end_date += "T23:59:59.999"
-        end_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%f")
+        end_date = pd.to_datetime(end_date, format="%Y-%m-%dT%H:%M:%S.%f")
 
         # Retrieve items from the specified collection
         collection = self._param("collection")
@@ -126,7 +129,7 @@ class ASF(Base):
 
         return items
 
-    def _download_via_http(self, url, session, output_dir, chunk_size=131072):
+    def _download_via_http(self, url, session, output_dir):
         """
         Download a file from an HTTP URL using requests and save it locally.
 
@@ -134,7 +137,6 @@ class ASF(Base):
             url (str): HTTP URL to download.
             session: A requests.Session (or similar) for the download.
             output_dir (Path): Local directory where the file will be saved.
-            chunk_size (int): Size of each chunk in bytes.
 
         Returns:
             Path: Path to the downloaded local file.
@@ -143,7 +145,7 @@ class ASF(Base):
         with session.get(url, stream=True, timeout=30) as response:
             response.raise_for_status()
             with open(local_file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=chunk_size):
+                for chunk in response.iter_content(chunk_size=self.chunk_size):
                     if chunk:
                         f.write(chunk)
 
@@ -195,7 +197,7 @@ class ASF(Base):
         return band_files
 
     def _download_item(
-        self, item, session, output_dir, bands=None, chunk_size=131072
+        self, item, session, output_dir, bands=None
     ):
         """
         Download the entire zip file for an ASF item using HTTP if not. 
@@ -216,7 +218,7 @@ class ASF(Base):
         item_id = item.properties.get("fileID")
         if not item_id:
             start_time_str = item.properties.get("startTime")
-            start_date = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%SZ")
+            start_date = pd.to_datetime(start_time_str, format="%Y-%m-%dT%H:%M:%SZ")
             item_id = start_date.strftime("%Y%m%d")
             item.properties["fileID"] = item_id
 
@@ -242,7 +244,7 @@ class ASF(Base):
         url = item.properties.get("url")
         if url is None:
             raise ValueError("No URL found in item properties for downloading.")
-        local_zip_path = self._download_via_http(url, session, item_dir, chunk_size)
+        local_zip_path = self._download_via_http(url, session, item_dir)
 
         # Extract the desired TIFF files from the downloaded zip file.
         band_files = self._extract_files(local_zip_path, item_dir, bands)
