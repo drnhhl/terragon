@@ -40,6 +40,9 @@ cdse = [
     "boto3",
     "rasterio>=1.4.0",
 ]
+asf = [
+    "asf-search"
+]
 
 [project.urls]
 Homepage = "https://github.com/drnhhl/terragon"
