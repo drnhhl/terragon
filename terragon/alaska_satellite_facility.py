@@ -15,11 +15,9 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import indices_are_identical, meters_to_crs_unit
+from .utils import align_coords, align_resolutions
 
 supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
-warnings.simplefilter("ignore")
-
 
 class ASF(Base):
     def __init__(self, credentials: dict = None):
@@ -32,10 +30,6 @@ class ASF(Base):
         super().__init__()
         self.credentials = credentials or {}
         self.session = None
-
-        # Suppress irrelevant warnings and errors for cleaner logs
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        logging.getLogger("asf_search").setLevel(logging.ERROR)
 
     def _init_asf_session(self):
         """Authenticate and initialize an ASF session."""
@@ -352,7 +346,7 @@ class ASF(Base):
             return None
 
         # Align all bands to the same resolution and spatial extent
-        band_data = self._align_resolutions(band_data, shp, resolution, resampling)
+        band_data = align_resolutions(band_data, shp, resolution, resampling)
 
         # Pad bands to ensure consistent spatial dimensions
         band_data = [
@@ -402,7 +396,7 @@ class ASF(Base):
         times = list(times)
 
         # Align datasets and concatenate along time
-        time_data = self._align_coords(time_data, shp, resampling)
+        time_data = align_coords(time_data, shp, resampling)
         time_data = [
             ds.assign_coords(
                 time=pd.to_datetime(time, unit="ns" if isinstance(time, int) else None)
@@ -412,50 +406,3 @@ class ASF(Base):
 
         data = xr.concat(time_data, dim="time", join="exact").sortby("time")
         return data
-
-    def _align_resolutions(self, datasets, shp, resolution, resampling):
-        """unify the resolutions of the list of the xr.Datasets."""
-        ress = [ds.rio.resolution() for ds in datasets]
-        resolution = meters_to_crs_unit(resolution, shp)
-        # round degrees to 8 decimal places for cm resolution
-        ress = [(round(res[0], 8), round(res[0], 8)) for res in ress]
-        resolution = [round(res, 8) for res in resolution]
-        if len(set(ress)) > 1 or (len(ress) > 0 and ress[0] != resolution):
-            # get closest resolution
-            idx = sorted(
-                enumerate(ress),
-                key=lambda item: abs(resolution[0] - abs(item[1][0]))
-                + abs(resolution[1] - abs(item[1][1])),
-            )[0][0]
-        if ress[idx] != resolution:
-            datasets[idx] = datasets[idx].rio.reproject(
-                shp.crs, resolution=resolution, resampling=resampling
-            )
-        # reproject rest to master
-        datasets = [
-            (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
-            for i, ds in enumerate(datasets)
-        ]
-        return datasets
-
-    def _align_coords(self, datasets, shp, resampling):
-        """unify the crs and indices of the datasets."""
-        # make sure the coordinates are the same and match (e.g. if there are other crs)
-        if not all(
-            [ds.rio.crs == datasets[0].rio.crs for ds in datasets]
-        ) or not indices_are_identical(datasets):
-            crs_list = [ds.rio.crs for ds in datasets]
-            # match all to master (first shp crs)
-            idx = [i for i, crs in enumerate(crs_list) if crs == shp.crs]
-            if len(idx) == 0:
-                warnings.warn(
-                    f"No matching crs found and all crs are different. Using first crs {crs_list[0]} as master."
-                )
-                idx = 0
-            else:
-                idx = idx[0]
-            datasets = [
-                (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
-                for i, ds in enumerate(datasets)
-            ]
-        return datasets
