@@ -1,11 +1,14 @@
 import os
 import unittest
+import shutil
+import atexit
 
 from base import _TestBase
 from utils import load_env_variables
-
 import terragon
 
+# Define a global download folder that both tests and cleanup use.
+DOWNLOAD_FOLDER = "tests/download/"
 
 class TestASF(_TestBase, unittest.TestCase):
     def setUp(self):
@@ -23,10 +26,13 @@ class TestASF(_TestBase, unittest.TestCase):
         self.arguments["bands"] = ["VH", "VV"]
         self.arguments["num_workers"] = 4
         self.arguments["rm_tmp_files"] = False
+        self.arguments["download_folder"] = DOWNLOAD_FOLDER
 
+    @unittest.skip("Skip base class crs test")
     def test_crs(self):
         pass
 
+    @unittest.skip("Skip base class resolution test")
     def test_resolution(self):
         pass
 
@@ -42,9 +48,9 @@ class TestASF(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 1 
-            and self.width - 1 <= len(ds.x) <= self.width + 1
-            and self.height - 1 <= len(ds.y) <= self.height + 1
+            len(ds.time) == 1 and 
+            self.width - 1 <= len(ds.x) <= self.width + 1 and
+            self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_alos_avnir2(self):
@@ -52,18 +58,26 @@ class TestASF(_TestBase, unittest.TestCase):
         args["collection"] = "ALOS AVNIR-2"
         args["start_date"] = "2009-12-19"
         args["end_date"] = "2009-12-21"
-        args["bands"] = ["IMG-01"] # IMG_02, IMG_03, IMG_04
+        args["bands"] = ["IMG-01"]  # IMG_02, IMG_03, IMG_04
         args["resolution"] = 10
         args["filter"] = {}
 
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 1
-            and self.width - 1 <= len(ds.x) <= self.width + 1
-            and self.height - 1 <= len(ds.y) <= self.height + 1
+            len(ds.time) == 1 and 
+            self.width - 1 <= len(ds.x) <= self.width + 1 and
+            self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
+# Final cleanup function
+def final_cleanup():
+    if os.path.exists(DOWNLOAD_FOLDER):
+        print(f"[FINAL CLEANUP] Removing folder: {DOWNLOAD_FOLDER}")
+        shutil.rmtree(DOWNLOAD_FOLDER)
+
+# Register the final cleanup function to be executed on exit.
+atexit.register(final_cleanup)
 
 if __name__ == "__main__":
     unittest.main()
