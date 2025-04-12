@@ -16,13 +16,13 @@ from shapely.geometry import box
 from .base import Base
 from .utils import align_coords, align_resolutions
 
-supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
 
 class ASF(Base):
-    def __init__(
-        self, 
-        credentials: dict = None,
-        chunk_size: int = 131072):
+    _chunk_size = 131072  # chunks size for downloading files
+
+    _supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
+
+    def __init__(self, credentials: dict = None):
         """
         Initialize the ASF class for searching, downloading, and processing ASF datasets.
 
@@ -32,7 +32,6 @@ class ASF(Base):
         super().__init__()
         self.credentials = credentials or {}
         self.session = None
-        self.chunk_size = chunk_size
 
     def _init_asf_session(self):
         """Authenticate and initialize an ASF session."""
@@ -77,7 +76,7 @@ class ASF(Base):
             raise RuntimeError("Failed to retrieve collections")
 
         warnings.warn(
-            f"Currently we only support the following collections: {supported_collections}"
+            f"Currently we only support the following collections: {self._supported_collections}"
         )
         return collections
 
@@ -96,8 +95,8 @@ class ASF(Base):
             }
         )
 
-        if self._param("collection") not in supported_collections:
-            warnings.warn(f"Currently we only support collections: {supported_collections}")
+        if self._param("collection") not in self._supported_collections:
+            warnings.warn(f"Currently we only support collections: {self._supported_collections}")
 
         # Reproject shapefile bounds to EPSG:4326 (required by ASF)
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
@@ -109,6 +108,7 @@ class ASF(Base):
         if "T" not in start_date:
             start_date += "T00:00:00.000"
         start_date = pd.to_datetime(start_date, format="%Y-%m-%dT%H:%M:%S.%f")
+        # change the end date to the end of the day
         if "T" not in end_date:
             end_date += "T23:59:59.999"
         end_date = pd.to_datetime(end_date, format="%Y-%m-%dT%H:%M:%S.%f")
@@ -145,7 +145,7 @@ class ASF(Base):
         with session.get(url, stream=True, timeout=30) as response:
             response.raise_for_status()
             with open(local_file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=self.chunk_size):
+                for chunk in response.iter_content(chunk_size=self._chunk_size):
                     if chunk:
                         f.write(chunk)
 
@@ -196,11 +196,9 @@ class ASF(Base):
         band_files = {band: file_path for band, file_path in results}
         return band_files
 
-    def _download_item(
-        self, item, session, output_dir, bands=None
-    ):
+    def _download_item(self, item, session, output_dir, bands=None):
         """
-        Download the entire zip file for an ASF item using HTTP if not. 
+        Download the entire zip file for an ASF item using HTTP if not.
         Once downloaded, extract only the desired TIFF files directly into output_dir
         (flattening any subfolder structure).
 
@@ -209,7 +207,6 @@ class ASF(Base):
             session: Session for HTTP downloads.
             output_dir (Path): Directory where files are saved.
             bands (list, optional): List of band strings to filter for.
-            chunk_size (int): Chunk size in bytes for downloads.
 
         Returns:
             The updated item with its 'band_files' property updated.
@@ -279,8 +276,7 @@ class ASF(Base):
 
         # Parallelize the download per item.
         items = Parallel(n_jobs=num_workers, backend="threading", verbose=0)(
-            delayed(self._download_item)(item, session, output_dir, bands)
-            for item in items
+            delayed(self._download_item)(item, session, output_dir, bands) for item in items
         )
 
         if self._param("create_minicube"):
