@@ -1,14 +1,15 @@
 import os
-import unittest
 import shutil
-import atexit
+import unittest
 
 from base import _TestBase
 from utils import load_env_variables
+
 import terragon
 
 # Define a global download folder that both tests and cleanup use.
 DOWNLOAD_FOLDER = "tests/download/"
+
 
 class TestASF(_TestBase, unittest.TestCase):
     def setUp(self):
@@ -48,9 +49,9 @@ class TestASF(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 1 and 
-            self.width - 1 <= len(ds.x) <= self.width + 1 and
-            self.height - 1 <= len(ds.y) <= self.height + 1
+            len(ds.time) == 1
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
     def test_alos_avnir2(self):
@@ -65,19 +66,19 @@ class TestASF(_TestBase, unittest.TestCase):
         ds = self.tg.create(**args)
 
         self.assertTrue(
-            len(ds.time) == 1 and 
-            self.width - 1 <= len(ds.x) <= self.width + 1 and
-            self.height - 1 <= len(ds.y) <= self.height + 1
+            len(ds.time) == 1
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
         )
 
-# Final cleanup function
-def final_cleanup():
-    if os.path.exists(DOWNLOAD_FOLDER):
-        print(f"[FINAL CLEANUP] Removing folder: {DOWNLOAD_FOLDER}")
-        shutil.rmtree(DOWNLOAD_FOLDER)
+    def tearDown(self):
+        super().tearDown()
+        if os.path.exists(DOWNLOAD_FOLDER):
+            print(f"[TEARDOWN] Removing folder: {DOWNLOAD_FOLDER}")
+            shutil.rmtree(DOWNLOAD_FOLDER)
+        else:
+            print(f"[TEARDOWN] Folder does not exist: {DOWNLOAD_FOLDER}")
 
-# Register the final cleanup function to be executed on exit.
-atexit.register(final_cleanup)
 
 if __name__ == "__main__":
     unittest.main()
