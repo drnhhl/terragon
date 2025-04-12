@@ -18,11 +18,16 @@ from .utils import align_coords, align_resolutions
 
 
 class ASF(Base):
-    """Class to interact with the Alaska Satellite Facility. The whole tiles are downloaded to the temporary folder and then cropped to the shapefile.
-    This can be slow, but currently the only available option for downloading.
-    Currently only these collections are supported: SENTINEL-1, ALOS PALSAR, ALOS AVNIR-2.
+    """Class to interact with the Alaska Satellite Facility (ASF). This class provides functionality to search for, download, and process satellite imagery from ASF.
+    It downloads complete image tiles via HTTP into a temporary folder and subsequently crops, reprojects, and aligns the imagery to match a given shapefile.
+    The processing pipeline leverages several libraries including asf_search, rasterio, rioxarray, xarray, pandas, and joblib to facilitate efficient parallel processing.
 
-    :param credentials: credentials to authenticate, expected format: {'asf_username': <username>, 'asf_password': <pw>}.
+    The downloaded data are optionally merged into a multi-temporal data cube ("minicube") for further analysis. Note that while the full image tiles are initially retrieved,
+    only the pertinent TIFF files (for selected bands) are extracted and processed.
+
+    Currently, the following satellite data collections are supported: SENTINEL-1, ALOS PALSAR, and ALOS AVNIR-2.
+
+    :param credentials: A dictionary for ASF authentication. Expected format: {'asf_username': <username>, 'asf_password': <pwd>}.
     """
 
     _chunk_size = 131072  # chunks size for downloading files
@@ -30,16 +35,21 @@ class ASF(Base):
     _supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
 
     def __init__(self, credentials: dict = {}):
-        """Initialize class and save the credentials.
+        """Initialize the ASF instance with the provided credentials.
 
-        :param credentials: credentials to authenticate, expected format: {'asf_username': <username>, 'asf_password': <pw>}.
+        :param credentials: Credentials to authenticate with ASF.
+                            Expected format: {'asf_username': <username>, 'asf_password': <pw>}.
         """
         super().__init__()
         self.credentials = credentials
         self.session = None
 
     def _init_asf_session(self):
-        """Authenticate and initialize an ASF session."""
+        """Authenticate and initialize an ASF session.
+
+        :return: An authenticated ASF session object.
+        :raises ValueError: If credentials are not provided.
+        """
         if not self.credentials:
             raise ValueError(
                 "Credentials are required to initialize an ASF session for downloading."
@@ -50,17 +60,20 @@ class ASF(Base):
         )
 
     def _get_session(self):
-        """Lazy initialization of the ASF session."""
+        """Lazily initialize and return the ASF session.
+
+        :return: The active ASF session object.
+        """
         if not self.session:
             self.session = self._init_asf_session()
         return self.session
 
     def retrieve_collections(self, filter_by_name: str = None):
-        """Retrieve ASF collections and filter them if a name filter is provided.
+        """Search the collections provided by the Alaska Satellite Facility.
 
-        :param filter_by_name: A substring to filter collections by name., defaults to None
-        :raises RuntimeError: if the request to the collections endpoint fails
-        :return: a list of collection names
+        :param filter_by_name: Name to filter the collections for, defaults to None.
+        :raises RuntimeError: If the request to the collections endpoint fails.
+        :return: A list of collection names.
         """
         # Get all collections, ignoring private or hidden ones
         collections = [
@@ -83,12 +96,12 @@ class ASF(Base):
         return collections
 
     def search(self, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
-        """Search for ASF products matching the specified parameters. For a description of the args/kwargs parameters see the Base class function.
+        """Search for ASF products using the specified parameters.
 
-        :param rm_tmp_files: Remove the downloaded files after the minicube is created, defaults to True
-        :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
-        :raises ValueError: when no items are found
-        :return: a list of items
+        :param rm_tmp_files: Remove downloaded temporary files after creating the data cube, defaults to True.
+        :param resampling: Resampling method to use when reprojecting images, defaults to rasterio.enums.Resampling.nearest.
+        :raises ValueError: If no items are found for the given search parameters.
+        :return: A list of ASF products (items).
         """
         super().search(**kwargs)
         self._parameters.update(
@@ -133,16 +146,12 @@ class ASF(Base):
         return items
 
     def _download_via_http(self, url, session, output_dir):
-        """
-        Download a file from an HTTP URL using requests and save it locally.
+        """Download file from an HTTP URL and save it to the specified output directory.
 
-        Args:
-            url (str): HTTP URL to download.
-            session: A requests.Session (or similar) for the download.
-            output_dir (Path): Local directory where the file will be saved.
-
-        Returns:
-            Path: Path to the downloaded local file.
+        :param url: HTTP URL to download the file from.
+        :param session: HTTP session (e.g., requests.Session) to use for the download.
+        :param output_dir: Local directory path where the downloaded file will be stored.
+        :return: Path to the downloaded file.
         """
         local_file_path = output_dir / Path(url).name
         with session.get(url, stream=True, timeout=30) as response:
@@ -155,18 +164,15 @@ class ASF(Base):
         return local_file_path
 
     def _extract_files(self, zip_path, output_dir, bands=None):
-        """
-        Extract TIFF files from a zip archive using multiple threads,
-        flattening the directory structure so that all files are extracted directly
-        into output_dir (i.e. without recreating any subfolders).
+        """Extract TIFF files from a zip archive using parallel processing.
 
-        Args:
-            zip_path (Path): Path to the zip archive.
-            output_dir (Path): Directory to extract files.
-            bands (list, optional): List of band identifiers to filter.
+        This method flattens the archive directory structure by extracting all TIFF files directly
+        into the specified output directory. Optionally, it can filter files by the provided band identifiers.
 
-        Returns:
-            dict: Dictionary mapping band names to file paths.
+        :param zip_path: Path to the zip archive.
+        :param output_dir: Directory where extracted files will be saved.
+        :param bands: Optional list of band identifiers to filter the extracted files, defaults to None.
+        :return: A dictionary mapping band names to the paths of the extracted files.
         """
         # Open the zip file once to get the list of relevant file names.
         with ZipFile(zip_path, "r") as z:
@@ -200,19 +206,16 @@ class ASF(Base):
         return band_files
 
     def _download_item(self, item, session, output_dir, bands=None):
-        """
-        Download the entire zip file for an ASF item using HTTP if not.
-        Once downloaded, extract only the desired TIFF files directly into output_dir
-        (flattening any subfolder structure).
+        """Download a complete ASF item via HTTP and extract its relevant TIFF files.
 
-        Args:
-            item: ASF item to download.
-            session: Session for HTTP downloads.
-            output_dir (Path): Directory where files are saved.
-            bands (list, optional): List of band strings to filter for.
+        If the item has already been downloaded and the expected files exist, the download is skipped.
+        Otherwise, the method downloads the zip file, extracts the specified TIFF files, and updates the item.
 
-        Returns:
-            The updated item with its 'band_files' property updated.
+        :param item: ASF item containing metadata and the file URL.
+        :param session: HTTP session to use for the download.
+        :param output_dir: Directory where the item's files will be stored.
+        :param bands: Optional list of band identifiers to filter for during extraction, defaults to None.
+        :return: The updated ASF item with its 'band_files' property containing the paths to the extracted TIFF files.
         """
         # Determine a unique identifier for the item.
         item_id = item.properties.get("fileID")
@@ -257,10 +260,14 @@ class ASF(Base):
         return item
 
     def download(self, items):
-        """Download ASF items and optionally merge them into a data cube.
+        """Download ASF items and optionally merge them into a multi-temporal data cube.
 
-        :param items: list of ASF items to download.
-        :return: xarray.Dataset (if create_minicube is True) or list of filenames
+        This method downloads each ASF item, processes its band data, and either combines them into a data cube
+        ("minicube") or saves individual TIFF files to the output directory.
+
+        :param items: List of ASF items to download.
+        :return: An xarray.Dataset if the 'create_minicube' parameter is True; otherwise, a list of file paths to the TIFF files.
+        :raises ValueError: If no items are provided for download.
         """
         if len(items) == 0:
             raise ValueError("No items to download.")
@@ -308,16 +315,17 @@ class ASF(Base):
             return fps
 
     def _load_band_data(self, item, shp, resolution, resampling):
-        """
-        Load and preprocess band data for a single item.
+        """Load and preprocess band data for a single ASF item.
 
-        Args:
-            item: The ASF item containing band files and metadata.
-            shp: Shapefile geometry for clipping and reprojection.
-            resolution: Target resolution for reprojection.
+        The method opens the band's TIFF files, reprojects and clips the image data based on the provided shapefile,
+        and ensures that all bands are aligned to a consistent resolution and spatial extent.
+        Finally, it combines the processed bands into a single xarray.Dataset.
 
-        Returns:
-            xarray.Dataset: Combined dataset with all bands as variables.
+        :param item: ASF item containing band file paths and associated metadata.
+        :param shp: Shapefile geometry used for clipping and reprojection.
+        :param resolution: Target resolution for reprojection.
+        :param resampling: Resampling method to use when reprojecting images.
+        :return: An xarray.Dataset containing the processed band data, or None if processing fails.
         """
         band_data = []
         bands = []
@@ -372,9 +380,14 @@ class ASF(Base):
         return ds
 
     def _create_minicube(self, items):
-        """
-        Merge multiple ASF files into a single dataset.
-        :param fps: List of file paths to merge.
+        """Merge multiple ASF items into a single multi-temporal data cube.
+
+        The method processes individual ASF items, aligns their spatial coordinates,
+        and concatenates them along the time dimension to produce a unified dataset.
+
+        :param items: List of ASF items to merge.
+        :return: A concatenated xarray.Dataset sorted by time.
+        :raises RuntimeError: If the number of processed items does not match the input count.
         """
         shp = self._param("shp")
         resolution = self._param("resolution")
