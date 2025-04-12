@@ -18,19 +18,24 @@ from .utils import align_coords, align_resolutions
 
 
 class ASF(Base):
+    """Class to interact with the Alaska Satellite Facility. The whole tiles are downloaded to the temporary folder and then cropped to the shapefile.
+    This can be slow, but currently the only available option for downloading.
+    Currently only these collections are supported: SENTINEL-1, ALOS PALSAR, ALOS AVNIR-2.
+
+    :param credentials: credentials to authenticate, expected format: {'asf_username': <username>, 'asf_password': <pw>}.
+    """
+
     _chunk_size = 131072  # chunks size for downloading files
 
     _supported_collections = ["SENTINEL-1", "ALOS PALSAR", "ALOS AVNIR-2"]
 
-    def __init__(self, credentials: dict = None):
-        """
-        Initialize the ASF class for searching, downloading, and processing ASF datasets.
+    def __init__(self, credentials: dict = {}):
+        """Initialize class and save the credentials.
 
-        Args:
-            credentials (dict): Optional ASF credentials (username and password).
+        :param credentials: credentials to authenticate, expected format: {'asf_username': <username>, 'asf_password': <pw>}.
         """
         super().__init__()
-        self.credentials = credentials or {}
+        self.credentials = credentials
         self.session = None
 
     def _init_asf_session(self):
@@ -44,21 +49,18 @@ class ASF(Base):
             password=self.credentials.get("asf_password"),
         )
 
-    def get_session(self):
+    def _get_session(self):
         """Lazy initialization of the ASF session."""
         if not self.session:
             self.session = self._init_asf_session()
         return self.session
 
     def retrieve_collections(self, filter_by_name: str = None):
-        """
-        Retrieve ASF collections and filter them if a name filter is provided.
+        """Retrieve ASF collections and filter them if a name filter is provided.
 
-        Args:
-            filter_by_name (str): A substring to filter collections by name.
-
-        Returns:
-            list: Filtered list of collection names.
+        :param filter_by_name: A substring to filter collections by name., defaults to None
+        :raises RuntimeError: if the request to the collections endpoint fails
+        :return: a list of collection names
         """
         # Get all collections, ignoring private or hidden ones
         collections = [
@@ -81,11 +83,12 @@ class ASF(Base):
         return collections
 
     def search(self, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
-        """
-        Search for ASF products matching the specified parameters.
+        """Search for ASF products matching the specified parameters. For a description of the args/kwargs parameters see the Base class function.
 
-        Returns:
-            list: Search results as ASF items.
+        :param rm_tmp_files: Remove the downloaded files after the minicube is created, defaults to True
+        :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
+        :raises ValueError: when no items are found
+        :return: a list of items
         """
         super().search(**kwargs)
         self._parameters.update(
@@ -125,7 +128,7 @@ class ASF(Base):
         )
 
         if len(items) == 0:
-            raise ValueError("No items found")
+            raise ValueError("No items found.")
 
         return items
 
@@ -254,17 +257,15 @@ class ASF(Base):
         return item
 
     def download(self, items):
-        """
-        Download ASF items and optionally merge them into a data cube.
+        """Download ASF items and optionally merge them into a data cube.
 
-        Args:
-            items: List of ASF items to download.
-
-        Returns:
-            Either an xarray dataset (if create_minicube is True) or a list of file paths.
+        :param items: list of ASF items to download.
+        :return: xarray.Dataset (if create_minicube is True) or list of filenames
         """
-        assert len(items) > 0, "No images to download."
-        session = self.get_session()  # Assumes this returns a requests.Session
+        if len(items) == 0:
+            raise ValueError("No items to download.")
+
+        session = self._get_session()  # Assumes this returns a requests.Session
         output_dir = Path(self._get_param("download_folder", raise_error=True))
         output_dir.mkdir(parents=True, exist_ok=True)
 
