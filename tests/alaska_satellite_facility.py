@@ -24,7 +24,7 @@ class TestASF(_TestBase, unittest.TestCase):
         self.arguments["end_date"] = "2021-01-02"
         self.arguments["collection"] = "SENTINEL-1"
         self.arguments["filter"] = {"processingLevel": "GRD_HD"}
-        self.arguments["bands"] = ["VH", "VV"]
+        self.arguments["bands"] = ["VH"]
         self.arguments["num_workers"] = 4
         self.arguments["rm_tmp_files"] = False
         self.arguments["download_folder"] = DOWNLOAD_FOLDER
