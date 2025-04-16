@@ -2,7 +2,6 @@ import logging
 import shutil
 import warnings
 from pathlib import Path
-from zipfile import ZipFile
 
 import asf_search as asf
 import pandas as pd
@@ -145,66 +144,6 @@ class ASF(Base):
 
         return items
 
-    def _download_via_http(self, url, session, output_dir):
-        """Download file from an HTTP URL and save it to the specified output directory.
-
-        :param url: HTTP URL to download the file from.
-        :param session: HTTP session (e.g., requests.Session) to use for the download.
-        :param output_dir: Local directory path where the downloaded file will be stored.
-        :return: Path to the downloaded file.
-        """
-        local_file_path = output_dir / Path(url).name
-        with session.get(url, stream=True, timeout=30) as response:
-            response.raise_for_status()
-            with open(local_file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=self._chunk_size):
-                    if chunk:
-                        f.write(chunk)
-
-        return local_file_path
-
-    def _extract_files(self, zip_path, output_dir, bands=None):
-        """Extract TIFF files from a zip archive using parallel processing.
-
-        This method flattens the archive directory structure by extracting all TIFF files directly
-        into the specified output directory. Optionally, it can filter files by the provided band identifiers.
-
-        :param zip_path: Path to the zip archive.
-        :param output_dir: Directory where extracted files will be saved.
-        :param bands: Optional list of band identifiers to filter the extracted files, defaults to None.
-        :return: A dictionary mapping band names to the paths of the extracted files.
-        """
-        # Open the zip file once to get the list of relevant file names.
-        with ZipFile(zip_path, "r") as z:
-            file_names = [name for name in z.namelist() if name.lower().endswith((".tiff", ".tif"))]
-
-        if bands:
-            bands_lower = [band.lower() for band in bands]
-            file_names = [
-                name for name in file_names if any(b in name.lower() for b in bands_lower)
-            ]
-        else:
-            bands_lower = []
-
-        def extract_file(file_name):
-            # Each worker re-opens the zip file independently.
-            with ZipFile(zip_path, "r") as z:
-                # Read the file contents from the zip.
-                data = z.read(file_name)
-            # Write the file directly to output_dir using only its basename.
-            local_file = output_dir / Path(file_name).name
-            with open(local_file, "wb") as f:
-                f.write(data)
-            band_name = next((band for band in bands_lower if band in file_name.lower()), "unknown")
-            return band_name, str(local_file)
-
-        # Use joblib to run extraction in parallel and collect results.
-        results = Parallel(n_jobs=-1)(delayed(extract_file)(file_name) for file_name in file_names)
-
-        # Aggregate the results into a dictionary.
-        band_files = {band: file_path for band, file_path in results}
-        return band_files
-
     def _download_item(self, item, session, output_dir, bands=None):
         """Download a complete ASF item via HTTP and extract its relevant TIFF files.
 
@@ -227,35 +166,45 @@ class ASF(Base):
 
         item_dir = output_dir / item_id
         item.properties["tmp_folder"] = str(item_dir)
-
-        band_files = {}
-        if item_dir.exists():
-            for band in bands or []:
-                matching_files = list(item_dir.rglob(f"*{band.lower()}*.tif*"))
-                if matching_files:
-                    band_files[band] = str(matching_files[0])
-        if band_files:
-            item.properties.setdefault("band_files", {}).update(band_files)
-            logging.info("Found existing files; skipping download for this item.")
-            return item
-        else:
-            logging.info("Item folder exists but expected files were not found. Redownloading...")
-
-        # Create the directory for this item.
         item_dir.mkdir(parents=True, exist_ok=True)
 
-        url = item.properties.get("url")
-        if url is None:
-            raise ValueError("No URL found in item properties for downloading.")
-        local_zip_path = self._download_via_http(url, session, item_dir)
+        band_files = {}
 
-        # Extract the desired TIFF files from the downloaded zip file.
-        band_files = self._extract_files(local_zip_path, item_dir, bands)
+        with item.remotezip(session=session) as z:
+
+            # Filter TIFF files
+            file_paths = [
+                file.filename
+                for file in z.filelist
+                if file.filename.endswith(".tiff") or file.filename.endswith(".tif")
+            ]
+
+            # Optionally filter by bands
+            if bands:
+                file_paths = [
+                    file for file in file_paths if any(band in file.lower() for band in bands)
+                ]
+
+            for idx, file_path in enumerate(file_paths):
+                # Compute the desired local file path using only the base name
+                file_name = Path(file_path).name
+                local_path = item_dir / file_name
+
+                with z.open(file_path) as src, open(local_path, "wb") as dst:
+                    for chunk in iter(lambda: src.read(self._chunk_size), b""):
+                        dst.write(chunk)
+
+                # Determine the band name
+                if bands:
+                    band_name = next(
+                        (band for band in bands if band in file_path.lower()), "unknown"
+                    )
+                else:
+                    band_name = f"band_{idx + 1}"
+                band_files[band_name] = str(local_path)
+
         for band_name, file_path in band_files.items():
             item.properties.setdefault("band_files", {})[band_name] = str(file_path)
-
-        # Remove the downloaded zip file.
-        local_zip_path.unlink()
 
         return item
 
