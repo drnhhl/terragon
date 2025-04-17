@@ -16,6 +16,7 @@
    source/gee
    source/pc
    source/cdse
+   source/asf
 
 .. toctree::
    :hidden:

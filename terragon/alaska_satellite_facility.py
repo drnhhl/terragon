@@ -21,9 +21,6 @@ class ASF(Base):
     It downloads complete image tiles via HTTP into a temporary folder and subsequently crops, reprojects, and aligns the imagery to match a given shapefile.
     The processing pipeline leverages several libraries including asf_search, rasterio, rioxarray, xarray, pandas, and joblib to facilitate efficient parallel processing.
 
-    The downloaded data are optionally merged into a multi-temporal data cube ("minicube") for further analysis. Note that while the full image tiles are initially retrieved,
-    only the pertinent TIFF files (for selected bands) are extracted and processed.
-
     Currently, the following satellite data collections are supported: SENTINEL-1, ALOS PALSAR, and ALOS AVNIR-2.
 
     :param credentials: A dictionary for ASF authentication. Expected format: {'asf_username': <username>, 'asf_password': <pwd>}.
@@ -222,13 +219,13 @@ class ASF(Base):
             raise ValueError("No items to download.")
 
         session = self._get_session()  # Assumes this returns a requests.Session
-        output_dir = Path(self._get_param("download_folder", raise_error=True))
+        output_dir = Path(self._param("download_folder", raise_error=True))
         output_dir.mkdir(parents=True, exist_ok=True)
 
         bands = self._param("bands")
         if bands:
             bands = [band.lower() for band in bands]
-        num_workers = self._get_param("num_workers", default=1)
+        num_workers = self._param("num_workers")
         logging.info(f"Downloading {len(items)} items using {num_workers} worker(s).")
 
         # Parallelize the download per item.
@@ -342,7 +339,7 @@ class ASF(Base):
         resolution = self._param("resolution")
         resampling = self._param("resampling")
 
-        time_data = Parallel(n_jobs=self._get_param("num_workers", default=1), backend="threading")(
+        time_data = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
             delayed(self._load_band_data)(item, shp, resolution, resampling) for item in items
         )
 
