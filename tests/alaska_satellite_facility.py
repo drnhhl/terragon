@@ -7,13 +7,21 @@ from utils import load_env_variables
 
 import terragon
 
-# Define a global download folder that both tests and cleanup use.
-DOWNLOAD_FOLDER = "tests/download/"
-
 
 class TestASF(_TestBase, unittest.TestCase):
-    def setUp(self):
-        super().setUp()
+    DOWNLOAD_FOLDER = "tests/download/"
+
+    @classmethod
+    def tearDownClass(self):
+        if os.path.exists(self.DOWNLOAD_FOLDER):
+            print(f"[TEARDOWN] Removing folder: {self.DOWNLOAD_FOLDER}")
+            shutil.rmtree(self.DOWNLOAD_FOLDER)
+        else:
+            print(f"[TEARDOWN] Folder does not exist: {self.DOWNLOAD_FOLDER}")
+
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
         load_env_variables()
         credentials = {
             "asf_username": os.getenv("ASF_USERNAME"),
@@ -27,7 +35,7 @@ class TestASF(_TestBase, unittest.TestCase):
         self.arguments["bands"] = ["VH"]
         self.arguments["num_workers"] = 4
         self.arguments["rm_tmp_files"] = False
-        self.arguments["download_folder"] = DOWNLOAD_FOLDER
+        self.arguments["download_folder"] = self.DOWNLOAD_FOLDER
 
     @unittest.skip("Skip base class crs test")
     def test_crs(self):
@@ -70,14 +78,6 @@ class TestASF(_TestBase, unittest.TestCase):
             and self.width - 1 <= len(ds.x) <= self.width + 1
             and self.height - 1 <= len(ds.y) <= self.height + 1
         )
-
-    def tearDown(self):
-        super().tearDown()
-        if os.path.exists(DOWNLOAD_FOLDER):
-            print(f"[TEARDOWN] Removing folder: {DOWNLOAD_FOLDER}")
-            shutil.rmtree(DOWNLOAD_FOLDER)
-        else:
-            print(f"[TEARDOWN] Folder does not exist: {DOWNLOAD_FOLDER}")
 
 
 if __name__ == "__main__":
