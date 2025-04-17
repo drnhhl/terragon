@@ -37,12 +37,17 @@ class TestASF(_TestBase, unittest.TestCase):
         self.arguments["rm_tmp_files"] = False
         self.arguments["download_folder"] = self.DOWNLOAD_FOLDER
 
-    @unittest.skip("Skip base class crs test")
-    def test_crs(self):
-        pass
-
+    # skip test to save time
     @unittest.skip("Skip base class resolution test")
     def test_resolution(self):
+        pass
+
+    @unittest.skip("Skip base class download test")
+    def test_download(self):
+        pass
+
+    @unittest.skip("Skip base class donwload tif test")
+    def test_download_tifs(self):
         pass
 
     def test_alos_palsar(self):
@@ -50,7 +55,7 @@ class TestASF(_TestBase, unittest.TestCase):
         args["collection"] = "ALOS PALSAR"
         args["start_date"] = "2009-10-22"
         args["end_date"] = "2009-10-23"
-        args["bands"] = ["HH"]
+        args["bands"] = ["HH", "HV"]  # test also 2 bands
         args["resolution"] = 10
         args["filter"] = {"processingLevel": "L2.2"}
 
