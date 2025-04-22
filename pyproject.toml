@@ -41,7 +41,8 @@ cdse = [
     "rasterio>=1.4.0",
 ]
 asf = [
-    "asf-search"
+    "asf-search",
+    "remotezip"
 ]
 
 [project.urls]
