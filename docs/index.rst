@@ -27,6 +27,7 @@
    demo_files/demo_gee
    demo_files/demo_pc
    demo_files/demo_cdse
+   demo_files/demo_asf
 
 .. toctree::
    :hidden:
