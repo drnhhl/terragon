@@ -13,7 +13,7 @@ def visualize_sat_images(da, gdf, bands):
     for i, ax in enumerate(axs):
         subset = da.isel(time=i)
         if len(bands) == 1:
-            subset[bands[0]].plot.imshow(robust=True, ax=ax, cmap='gray')
+            subset[bands[0]].plot.imshow(robust=True, ax=ax, cmap="gray")
         else:
             subset[bands].to_array().plot.imshow(robust=True, ax=ax)
 

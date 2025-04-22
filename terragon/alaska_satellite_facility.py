@@ -253,7 +253,7 @@ class ASF(Base):
                 ds = self._load_band_data(
                     item, self._param("shp"), self._param("resolution"), self._param("resampling")
                 )
-                fp = output_dir / f"{item.properties.get("fileID")}.tiff"
+                fp = output_dir / f"{item.properties.get('fileID')}.tiff"
                 ds.rio.to_raster(fp)
                 fps.append(fp)
             return fps
@@ -285,7 +285,7 @@ class ASF(Base):
                                 # Reproject and clip the data as needed
                                 da = da.rio.reproject(shp.crs)
                                 da = da.rio.clip_box(*shp.total_bounds)
-                                da = da.load() 
+                                da.load()
                                 bands.append(band)
                                 band_data.append(da)
             except Exception as e:
