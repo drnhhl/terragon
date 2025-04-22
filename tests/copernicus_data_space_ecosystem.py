@@ -10,8 +10,9 @@ import terragon
 
 
 class TestCDSE(_TestBase, unittest.TestCase):
-    def setUp(self):
-        super().setUp()
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
 
         load_env_variables()  # load the .env vars if running locally
         credentials = {
