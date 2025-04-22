@@ -241,8 +241,6 @@ class ASF(Base):
             ds = self._prepare_cube(ds)
 
             if self._param("rm_tmp_files"):
-                # Force evaluation/computation so the dataset no longer depends on the temporary files.
-                ds = ds.compute()
                 for item in items:
                     tmp_folder = item.properties.get("tmp_folder")
                     if tmp_folder and Path(tmp_folder).exists():
@@ -290,9 +288,7 @@ class ASF(Base):
                                 # Reproject and clip the data as needed
                                 da = da.rio.reproject(shp.crs)
                                 da = da.rio.clip_box(*shp.total_bounds)
-                                da = (
-                                    da.load()
-                                )  # Force full loading of the data into memory, which releases file handles
+                                da = da.load() 
                                 bands.append(band)
                                 band_data.append(da)
             except Exception as e:
