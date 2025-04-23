@@ -14,8 +14,9 @@ class Test01GEE(unittest.TestCase):  # 01 is important since it should run first
 
 
 class Test02GEE(_TestBase, unittest.TestCase):
-    def setUp(self):
-        super().setUp()
+    @classmethod
+    def setUpClass(self):
+        super().setUpClass()
         load_env_variables()  # load the .env vars if running locally
         ee.Initialize(project=os.getenv("GEE_PROJECT_NAME"))
 
