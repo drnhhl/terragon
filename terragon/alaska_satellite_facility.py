@@ -238,14 +238,7 @@ class ASF(Base):
             ds = self._prepare_cube(ds)
 
             if self._param("rm_tmp_files"):
-                for item in items:
-                    tmp_folder = item.properties.get("tmp_folder")
-                    if tmp_folder and Path(tmp_folder).exists():
-                        try:
-                            shutil.rmtree(tmp_folder)
-                            logging.info(f"Removed temporary folder: {tmp_folder}")
-                        except Exception as e:
-                            logging.error(f"Error removing temporary folder {tmp_folder}: {e}")
+                self._cleanup_tmp(items)
             return ds
         else:
             # Process and save each item in parallel
@@ -259,22 +252,29 @@ class ASF(Base):
 
             fps = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
                 delayed(process_and_save)(
-                    item, self._param("shp"), self._param("resolution"), 
-                    self._param("resampling"), output_dir
-                ) for item in items
+                    item,
+                    self._param("shp"),
+                    self._param("resolution"),
+                    self._param("resampling"),
+                    output_dir,
+                )
+                for item in items
             )
 
             if self._param("rm_tmp_files"):
-                for item in items:
-                    tmp_folder = item.properties.get("tmp_folder")
-                    if tmp_folder and Path(tmp_folder).exists():
-                        try:
-                            shutil.rmtree(tmp_folder)
-                            logging.info(f"Removed temporary folder: {tmp_folder}")
-                        except Exception as e:
-                            logging.error(f"Error removing temporary folder {tmp_folder}: {e}")
-            
+                self._cleanup_tmp(items)
+
             return [fp for fp in fps if fp is not None]
+
+    def _cleanup_tmp(self, items):
+        for item in items:
+            tmp = item.properties.get("tmp_folder")
+            if tmp and Path(tmp).exists():
+                try:
+                    shutil.rmtree(tmp)
+                    logging.info(f"Removed temporary folder: {tmp}")
+                except Exception as e:
+                    logging.error(f"Error removing temporary folder {tmp}: {e}")
 
     def _load_band_data(self, item, shp, resolution, resampling):
         """Load and preprocess band data for a single ASF item.
