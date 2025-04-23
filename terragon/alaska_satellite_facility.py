@@ -92,7 +92,7 @@ class ASF(Base):
         return collections
 
     def search(self, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
-        """Search for ASF products using the specified parameters.
+        """Search for items in the Alaska Satellite Facility collections. For a description of the args/kwargs parameters see the Base class function.
 
         :param rm_tmp_files: Remove downloaded temporary files after creating the data cube, defaults to True.
         :param resampling: Resampling method to use when reprojecting images, defaults to rasterio.enums.Resampling.nearest.
@@ -206,10 +206,7 @@ class ASF(Base):
         return item
 
     def download(self, items):
-        """Download ASF items and optionally merge them into a multi-temporal data cube.
-
-        This method downloads each ASF item, processes its band data, and either combines them into a data cube
-        ("minicube") or saves individual TIFF files to the output directory.
+        """Download the items from Alaska Satellite Facility as xr.Dataset or download the files.
 
         :param items: List of ASF items to download.
         :return: An xarray.Dataset if the 'create_minicube' parameter is True; otherwise, a list of file paths to the TIFF files.

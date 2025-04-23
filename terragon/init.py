@@ -1,5 +1,5 @@
 def init(api: str, credentials: dict = None, **kwargs) -> object:
-    """instantiate a new data source object.
+    """Instantiate a new data source object.
 
     :param api: name of the API to use
     :param credentials: dict of the credentials, see requirements of the class, defaults to None
@@ -24,4 +24,4 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
 
         return ASF(credentials, **kwargs)
     else:
-        raise ValueError(f'API {api} not supported. Please use "pc", "gee", or "cdse".')
+        raise ValueError(f'API {api} not supported. Please use "pc", "gee", "cdse", or "asf".')
