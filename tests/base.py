@@ -6,10 +6,11 @@ import geopandas as gpd
 class _TestBase:
     """Base class in order define the basic test functionality."""
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(self):
         """set up the basic parameters for the tests.
         arguments collection, bands, etc. need to be defined in the child class."""
-        super().setUp()
+        super().setUpClass()
         self.gdf = gpd.read_file(Path("docs/demo_files/data/TUM_OTN.geojson"))
         self.arguments = dict(
             shp=self.gdf,

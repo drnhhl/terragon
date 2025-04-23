@@ -14,3 +14,6 @@ earthengine-api
 geedim
 # cdse
 boto3
+#asf
+asf-search
+remotezip

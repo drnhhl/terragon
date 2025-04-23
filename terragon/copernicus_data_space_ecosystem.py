@@ -16,7 +16,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, meters_to_crs_unit
+from .utils import align_coords, align_resolutions
 
 
 class CDSE(Base):
@@ -408,7 +408,7 @@ class CDSE(Base):
                 if not all(
                     [ds.rio.resolution()[0] == datasets[0].rio.resolution()[0] for ds in datasets]
                 ):
-                    datasets = self._align_resolutions(datasets, shp, resolution, resampling)
+                    datasets = align_resolutions(datasets, shp, resolution, resampling)
                 # add them as new bands
                 clipped = xr.concat(datasets, dim="band")
             elif len(datasets) == 0:
@@ -432,7 +432,7 @@ class CDSE(Base):
             raise RuntimeError("Bands were not downloaded.")
 
         # resample if needed
-        band_data = self._align_resolutions(band_data, shp, resolution, resampling)
+        band_data = align_resolutions(band_data, shp, resolution, resampling)
 
         # pad everything to make sure it has shape of shp
         band_data = [
@@ -457,31 +457,6 @@ class CDSE(Base):
         ds = xr.combine_by_coords(band_data)
 
         return ds
-
-    def _align_resolutions(self, datasets, shp, resolution, resampling):
-        """unify the resolutions of the list of the xr.Datasets."""
-        ress = [ds.rio.resolution() for ds in datasets]
-        resolution = meters_to_crs_unit(resolution, shp)
-        # round degrees to 8 decimal places for cm resolution
-        ress = [(round(res[0], 8), round(res[0], 8)) for res in ress]
-        resolution = [round(res, 8) for res in resolution]
-        if len(set(ress)) > 1 or (len(ress) > 0 and ress[0] != resolution):
-            # get closest resolution
-            idx = sorted(
-                enumerate(ress),
-                key=lambda item: abs(resolution[0] - abs(item[1][0]))
-                + abs(resolution[1] - abs(item[1][1])),
-            )[0][0]
-        if ress[idx] != resolution:
-            datasets[idx] = datasets[idx].rio.reproject(
-                shp.crs, resolution=resolution, resampling=resampling
-            )
-        # reproject rest to master
-        datasets = [
-            (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
-            for i, ds in enumerate(datasets)
-        ]
-        return datasets
 
     def _download_file(self, f_path, shp, resampling, use_virtual_rasterio_file):
         """wrapper to decide whether to use rasterio or patch download."""

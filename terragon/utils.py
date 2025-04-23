@@ -51,6 +51,32 @@ def align_coords(datasets, shp, resampling):
     return datasets
 
 
+def align_resolutions(datasets, shp, resolution, resampling):
+    """unify the resolutions of the list of the xr.Datasets."""
+    ress = [ds.rio.resolution() for ds in datasets]
+    resolution = meters_to_crs_unit(resolution, shp)
+    # round degrees to 8 decimal places for cm resolution
+    ress = [(round(res[0], 8), round(res[0], 8)) for res in ress]
+    resolution = [round(res, 8) for res in resolution]
+    if len(set(ress)) > 1 or (len(ress) > 0 and ress[0] != resolution):
+        # get closest resolution
+        idx = sorted(
+            enumerate(ress),
+            key=lambda item: abs(resolution[0] - abs(item[1][0]))
+            + abs(resolution[1] - abs(item[1][1])),
+        )[0][0]
+    if ress[idx] != resolution:
+        datasets[idx] = datasets[idx].rio.reproject(
+            shp.crs, resolution=resolution, resampling=resampling
+        )
+    # reproject rest to master
+    datasets = [
+        (ds.rio.reproject_match(datasets[idx], resampling=resampling) if i != idx else ds)
+        for i, ds in enumerate(datasets)
+    ]
+    return datasets
+
+
 def rm_files(fns):
     for fn in fns:
         if fn.exists():
