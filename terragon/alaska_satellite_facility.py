@@ -248,15 +248,33 @@ class ASF(Base):
                             logging.error(f"Error removing temporary folder {tmp_folder}: {e}")
             return ds
         else:
-            fps = []
-            for item in items:
-                ds = self._load_band_data(
-                    item, self._param("shp"), self._param("resolution"), self._param("resampling")
-                )
-                fp = output_dir / f"{item.properties.get('fileID')}.tiff"
-                ds.rio.to_raster(fp)
-                fps.append(fp)
-            return fps
+            # Process and save each item in parallel
+            def process_and_save(item, shp, resolution, resampling, output_dir):
+                ds = self._load_band_data(item, shp, resolution, resampling)
+                if ds is not None:
+                    fp = output_dir / f"{item.properties.get('fileID')}.tiff"
+                    ds.rio.to_raster(fp)
+                    return fp
+                return None
+
+            fps = Parallel(n_jobs=self._param("num_workers"), backend="threading")(
+                delayed(process_and_save)(
+                    item, self._param("shp"), self._param("resolution"), 
+                    self._param("resampling"), output_dir
+                ) for item in items
+            )
+
+            if self._param("rm_tmp_files"):
+                for item in items:
+                    tmp_folder = item.properties.get("tmp_folder")
+                    if tmp_folder and Path(tmp_folder).exists():
+                        try:
+                            shutil.rmtree(tmp_folder)
+                            logging.info(f"Removed temporary folder: {tmp_folder}")
+                        except Exception as e:
+                            logging.error(f"Error removing temporary folder {tmp_folder}: {e}")
+            
+            return [fp for fp in fps if fp is not None]
 
     def _load_band_data(self, item, shp, resolution, resampling):
         """Load and preprocess band data for a single ASF item.
