@@ -44,6 +44,9 @@ asf = [
     "asf-search",
     "remotezip"
 ]
+ea = [
+    "earthaccess",
+]
 
 [project.urls]
 Homepage = "https://github.com/drnhhl/terragon"

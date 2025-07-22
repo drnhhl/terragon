@@ -23,5 +23,9 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
         from .alaska_satellite_facility import ASF
 
         return ASF(credentials, **kwargs)
+    elif api == "ed" or api == "earthdata":
+        from .nasa_earth_data import ED
+
+        return ED(credentials, **kwargs)
     else:
-        raise ValueError(f'API {api} not supported. Please use "pc", "gee", "cdse", or "asf".')
+        raise ValueError(f'API {api} not supported. Please use "pc", "gee", "cdse", "asf", or "ed".')
