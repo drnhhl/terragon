@@ -1,4 +1,5 @@
 import shutil
+from collections import defaultdict
 from typing import Union
 from urllib.parse import urljoin
 
@@ -115,6 +116,25 @@ class PC(Base):
                 y=(bounds[1], bounds[3]),
                 **self._param("odc_stac_kwargs", default={}),
             )
+            if (
+                isinstance(self._param("save_metadata"), (list, tuple))
+                and len(self._param("save_metadata")) > 0
+            ):
+                # create a dict with metadata: {"prop1": [value1, value2, ...], ...}
+                meta_dict = defaultdict(list)
+                # loop through items and collect metadata
+                for item in items:
+                    item = item.to_dict()
+                    for key in self._param("save_metadata"):
+                        if key in item:
+                            meta_dict[key].append(item[key])
+                        elif key in item["properties"]:
+                            meta_dict[key].append(item["properties"][key])
+                        else:
+                            raise ValueError(f"Key {key} not found in item properties or features.")
+                # assign metadata to time dimension as coords
+                for key, values in meta_dict.items():
+                    ds = ds.assign_coords({key: ("time", values)})
             ds = self._prepare_cube(ds)
             return ds
         else:

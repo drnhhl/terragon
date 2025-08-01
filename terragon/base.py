@@ -45,6 +45,7 @@ class Base(ABC):
         download_folder: str = "./eo_download/",
         num_workers: int = 1,
         create_minicube: bool = True,
+        save_metadata: list[str] = [],
     ):
         """Search for items in the backend (This abstract function only takes all arguments and stores them).
 
@@ -78,6 +79,7 @@ class Base(ABC):
                 "download_folder": Path(download_folder),
                 "num_workers": num_workers,
                 "create_minicube": create_minicube,
+                "save_metadata": save_metadata,
             }
         )
 
@@ -103,6 +105,7 @@ class Base(ABC):
             "download_folder": (Path("./eo_download/"), False),
             "num_workers": (1, False),
             "create_minicube": (True, False),
+            "save_metadata": ([], False),
         }
 
         if not kwargs and name in defaults:
