@@ -1,7 +1,4 @@
-import hashlib
-import json
-import math
-import warnings
+import os
 from pathlib import Path
 from typing import List, Union
 
@@ -15,29 +12,47 @@ from .base import Base
 class ED(Base):
     def __init__(self, credentials: dict = None) -> None:
         super().__init__()
-        # TODO test if it is initialized
+        username = os.getenv("EARTHDATA_USERNAME")
+        password = os.getenv("EARTHDATA_PASSWORD")
+        if not username or not password:
+            raise ValueError(
+                "EARTHDATA_USERNAME and EARTHDATA_PASSWORD must be set in environment variables."
+            )
+        auth = earthaccess.login(strategy="environment", persist=False)
+        if auth.authenticated:
+            print(f"Successfully logged in to Earthdata as '{auth.username}'.")
+        else:
+            print("Earthdata login failed. Please check your credentials.")
 
     def retrieve_collections(self, filter_by_name: str = None) -> None:
-        out = earthaccess.search_datasets(keyword=filter_by_name)
-        out = [
-            c["meta"]["concept-id"] for c in out
-        ]  # TODO this only returns some id which does not really tell much -> add description?
-        return out
+        collections = earthaccess.search_datasets(keyword=filter_by_name)
+        results = []
+        for coll in collections:
+            try:
+                results.append(coll.summary())
+            except KeyError:
+                # Skip collections that don't have the required structure
+                continue
+        return results
 
-    def search(self, *args, **kwargs) -> List[DataGranule]:
+    def search(self, ed_kwargs={}, *args, **kwargs) -> List[DataGranule]:
         super().search(*args, **kwargs)
-        self._parameters.update({})  # TODO add parameters to search
+        self._parameters.update({"ed_kwargs": ed_kwargs})
 
         bounds_4326 = self._reproject_shp(self._param("shp")).total_bounds
         start_date = self._param("start_date")
         end_date = self._param("end_date")
+        filter_args = self._param("filter") or {}
+
+        # Remove potential conflicts from filter_args
+        for key in ["concept_id", "temporal", "bounding_box"]:
+            filter_args.pop(key, None)
+
         items = earthaccess.search_data(
-            concept_id=self._param(
-                "collection"
-            ),  # find the collection id here: https://www.earthdata.nasa.gov/data/catalog
+            concept_id=self._param("collection"),
             temporal=(start_date, end_date),
             bounding_box=tuple(bounds_4326),
-            # query=self._param("filter"),# TODO how to add filters? (doi, provider, version, cloud coverage, ...): https://search.earthdata.nasa.gov/
+            **filter_args,
         )
 
         return items
@@ -46,16 +61,31 @@ class ED(Base):
         if len(items) < 1:
             raise ValueError("No items to download")
 
-        if not self._param("create_minicube"):
-            self._param("download_folder").mkdir(parents=True, exist_ok=True)
-            files = earthaccess.download(
-                items,
-                local_path=self._param("download_folder"),
+        if self._param("create_minicube"):
+            ds = earthaccess.open_virtual_mfdataset(
+            granules=items,
+            access="indirect",
+            load=True,
+            concat_dim="time",
+            coords="minimal",
+            compat="override",
+            **self._param("ed_kwargs", default={}),
+            )
+            # ds = self._prepare_cube(ds)
+            return ds
+        else:
+            bands = self._param("bands")
+            if bands:
+                items = [item for item in items if any(band in item.data_links() for band in bands)]
+
+            download_folder = self._param("download_folder")
+            download_folder.mkdir(parents=True, exist_ok=True)
+
+            fns = earthaccess.download(
+                granules=items,
+                local_path=download_folder,
+                provider=self._param("provider"),
                 threads=self._param("num_workers"),
             )
-            files = [Path(file) for file in files]
-            return files
-
-        # TODO download items
-        # files = earthaccess.open(items)
-        # ds = xr.open_mfdataset(items)
+            # Convert string paths to Path objects
+            return [Path(fn) for fn in fns]
