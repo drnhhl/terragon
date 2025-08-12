@@ -113,12 +113,13 @@ class GEE(Base):
             warnings.warn(
                 f"{num_workers} workers is most likely too high, see https://developers.google.com/earth-engine/guides/usage."
             )
-        fns = Parallel(n_jobs=num_workers, backend="threading")(
+        result = Parallel(n_jobs=num_workers, backend="threading")(
             delayed(self._download_img)(
                 img_col, i, tmp_dir, self._param("shp"), region, transform, outline
             )
             for i in range(col_size)
         )
+        fns, meta = zip(*result)
 
         if not self._param("create_minicube"):
             return fns
@@ -126,6 +127,11 @@ class GEE(Base):
         # remove the temp files
         if self._param("rm_tmp_files"):
             rm_files(fns)
+
+        if len(self._param("save_metadata")) > 0:
+            # add metadata to the dataset
+            meta = {k: [d[k] for d in meta] for k in self._param("save_metadata")}
+            ds = ds.assign_coords({key: ("time", values) for key, values in meta.items()})
 
         ds = self._prepare_cube(ds)
         return ds
@@ -151,6 +157,8 @@ class GEE(Base):
             )
             # current date in ms
             date_prop = int(pd.Timestamp.now().timestamp() * 1000)
+        # meta data
+        props = {k: self._get_img_property(img, k) for k in self._param("save_metadata")}
 
         # create a unique filename through geometry since we are downloading clipped images
         geom_hash = hashlib.sha256(shp.geometry.iloc[0].wkt.encode("utf-8")).hexdigest()
@@ -164,7 +172,7 @@ class GEE(Base):
                 region=region.geometry(),
                 shape=shape,
             )
-        return fileName
+        return fileName, props
 
     def _get_img_property(self, img, prop_name):
         """Get a property from an image."""

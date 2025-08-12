@@ -35,6 +35,23 @@ class Test02GEE(_TestBase, unittest.TestCase):
 
         self.assertTrue(col_size > 0)
 
+    def test_create_meta(self):
+        args = self.arguments.copy()
+        args["save_metadata"] = ["system:id", "MEAN_INCIDENCE_AZIMUTH_ANGLE_B3"]
+
+        ds = self.tg.create(**args)
+        # check meta data
+        self.assertTrue(all(m in ds.coords for m in args["save_metadata"]))
+        times = ds.time.dt.strftime("%Y%m%d")
+        ids_dates = [id.split("/")[-1].split("T")[0] for id in ds[args["save_metadata"][0]].values]
+        self.assertTrue(all(times == ids_dates))
+
+        self.assertTrue(
+            len(ds.time) == self.nr_time_steps
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

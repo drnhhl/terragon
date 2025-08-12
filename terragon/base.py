@@ -60,6 +60,7 @@ class Base(ABC):
         :param download_folder: the folder to download files (also temporary files), defaults to "./eo_download/"
         :param num_workers: the number of workers in parallel to use for downloading, defaults to 1
         :param create_minicube: if True return a xarray.Dataset, otherwise return the downloaded filenames, defaults to True
+        :param save_metadata: list of metadata fields from each image to save as coordinates in the minicube, defaults to []
         """
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
@@ -163,5 +164,9 @@ class Base(ABC):
             "data_source": self.__class__.__name__,
             "collection": self._param("collection"),
         }
+
+        # sort by time
+        if "time" in ds.dims:
+            ds = ds.sortby("time")
 
         return ds

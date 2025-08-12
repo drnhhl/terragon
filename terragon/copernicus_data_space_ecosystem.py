@@ -16,7 +16,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, align_resolutions
+from .utils import align_coords, align_resolutions, gather_meta
 
 
 class CDSE(Base):
@@ -340,35 +340,36 @@ class CDSE(Base):
         )
 
         # combine the time data
-        if all([ds is None for ds in time_data]):
+        keep_idx = [i for i, ds in enumerate(time_data) if ds is not None]
+        if len(keep_idx) == 0:
             raise RuntimeError("No items were found.")
 
         # extract time information for each dataset
         if len(time_data) != len(items):
             raise RuntimeError("Lengths of downloaded items and requested items do not match.")
+
         # skip items which were not found
-        time_data, times = map(
-            list,
-            zip(
-                *[
-                    (ds, item["properties"]["datetime"])
-                    for ds, item in zip(time_data, items)
-                    if ds is not None
-                ]
-            ),
-        )
-
+        time_data = [time_data[i] for i in keep_idx]
+        times = [items[i]["properties"]["datetime"] for i in keep_idx]
         time_data = align_coords(time_data, shp, resampling)
-
         # add time coords (would have been removed by reproject_match in align_coords)
         time_data = [
             ds.assign_coords(time=("time", pd.to_datetime([time]).tz_convert(None)))
             for ds, time in zip(time_data, times)
         ]
-
         # merge time
-        data = xr.concat(time_data, dim="time", join="exact").sortby("time")
-        return data
+        data = xr.concat(time_data, dim="time", join="exact")
+
+        # gather meta data from items
+        if (
+            isinstance(self._param("save_metadata"), (list, tuple))
+            and len(self._param("save_metadata")) > 0
+        ):
+            meta_dict = gather_meta(items, self._param("save_metadata"))
+            meta_dict = {k: v for i, (k, v) in enumerate(meta_dict.items()) if i in keep_idx}
+            data = data.assign_coords({key: ("time", values) for key, values in meta_dict.items()})
+
+        return data.sortby("time")
 
     def _download_item(
         self,
