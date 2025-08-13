@@ -19,8 +19,8 @@ from .base import Base
 from .utils import align_coords, align_resolutions
 
 
-class CDSE(Base):
-    """Class to interact with the Copernicus Data Space Ecosystem. The images are downloaded from the AWS bucket.
+class CDSES3(Base):
+    """Class to interact with the Copernicus Data Space Ecosystem. The images are downloaded from the AWS S3 bucket.
     The packages rasterio/rioxarray/boto will be used to download the images.
     Currently only these collections are supported: COP-DEM, GLOBAL-MOSAICS, LANDSAT-5, LANDSAT-7, LANDSAT-8-ESA,
     TERRAAQUA, S2GLC, SENTINEL-1, SENTINEL-1-RTC, SENTINEL-2.
