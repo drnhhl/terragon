@@ -9,7 +9,7 @@ from utils import load_env_variables
 import terragon
 
 
-class TestCDSE(_TestBase, unittest.TestCase):
+class TestCDSES3(_TestBase, unittest.TestCase):
     @classmethod
     def setUpClass(self):
         super().setUpClass()

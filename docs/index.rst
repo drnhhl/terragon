@@ -16,6 +16,7 @@
    source/gee
    source/pc
    source/cdse
+   source/cdse_s3
    source/asf
 
 .. toctree::
@@ -28,6 +29,7 @@
    demo_files/demo_gee
    demo_files/demo_pc
    demo_files/demo_cdse
+   demo_files/demo_cdse_s3
    demo_files/demo_asf
 
 .. toctree::
