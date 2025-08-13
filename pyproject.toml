@@ -36,9 +36,13 @@ pc = [
     "odc-stac",
     "planetary-computer",
 ]
-cdse = [
+cdse_s3 = [
     "boto3",
     "rasterio>=1.4.0",
+]
+cdse = [
+    "odc-stac",
+    "pystac-client",
 ]
 asf = [
     "asf-search",
