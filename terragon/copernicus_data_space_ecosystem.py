@@ -57,17 +57,21 @@ class CDSE(Base):
         :return: a list of collection names
         """
         collections_url = urljoin(self.base_url, "collections")
-        response = requests.get(collections_url)
-        if response.status_code == 200:
+        response = requests.get(collections_url, timeout=60)
+        response.raise_for_status()
+        try:
             data = response.json()
             collections = [collection["id"] for collection in data["collections"]]
-            if filter_by_name:
-                collections = [
-                    collection for collection in collections if filter_by_name in collection.lower()
-                ]
-            return collections
-        else:
-            raise RuntimeError("Failed to retrieve collections")
+        except json.JSONDecodeError:
+            raise RuntimeError("Failed to decode JSON response from collections endpoint.")
+        
+        if filter_by_name:
+            filter_by_name = filter_by_name.lower()
+            collections = [
+                collection for collection in collections if filter_by_name in collection.lower()
+            ]
+
+        return collections
 
     def search(
         self,
