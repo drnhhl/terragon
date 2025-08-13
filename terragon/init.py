@@ -15,6 +15,10 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
         from .google_earth_engine import GEE
 
         return GEE(credentials, **kwargs)
+    elif api == "cdse_s3" or api == "copernicus_data_space_ecosystem_s3":
+        from .copernicus_data_space_ecosystem_s3 import CDSES3
+
+        return CDSES3(credentials, **kwargs)
     elif api == "cdse" or api == "copernicus_data_space_ecosystem":
         from .copernicus_data_space_ecosystem import CDSE
 
@@ -24,4 +28,6 @@ def init(api: str, credentials: dict = None, **kwargs) -> object:
 
         return ASF(credentials, **kwargs)
     else:
-        raise ValueError(f'API {api} not supported. Please use "pc", "gee", "cdse", or "asf".')
+        raise ValueError(
+            f'API {api} not supported. Please use "pc", "gee", "cdse_s3", "cdse", or "asf".'
+        )
