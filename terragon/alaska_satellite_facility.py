@@ -1,6 +1,7 @@
 import logging
 import shutil
 import warnings
+from collections import defaultdict
 from pathlib import Path
 
 import asf_search as asf
@@ -230,8 +231,29 @@ class ASF(Base):
             delayed(self._download_item)(item, session, output_dir, bands) for item in items
         )
 
+        items = sorted(items, key=lambda it: it.properties.get("startTime"))
+
         if self._param("create_minicube"):
             ds = self._create_minicube(items)
+            # Create dict with metadata
+            if (
+                isinstance(self._param("save_metadata"), (list, tuple))
+                and len(self._param("save_metadata")) > 0
+            ):
+                # create a dict with metadata: {"prop1": [value1, value2, ...], ...}
+                meta_dict = defaultdict(list)
+                # loop through items and collect metadata
+                for item in items:
+                    item = item.properties
+                    for key in self._param("save_metadata"):
+                        if key in item:
+                            meta_dict[key].append(item[key])
+                        else:
+                            raise ValueError(f"Key {key} not found in item properties or features.")
+                # assign metadata to time dimension as coords
+                for key, values in meta_dict.items():
+                    ds = ds.assign_coords({key: ("time", values)})
+
             ds = self._prepare_cube(ds)
 
             if self._param("rm_tmp_files"):
