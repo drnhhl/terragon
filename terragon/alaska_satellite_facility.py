@@ -395,5 +395,5 @@ class ASF(Base):
             for ds, time in zip(time_data, times)
         ]
 
-        data = xr.concat(time_data, dim="time", join="exact").sortby("time")
+        data = xr.concat(time_data, dim="time", join="exact")
         return data
