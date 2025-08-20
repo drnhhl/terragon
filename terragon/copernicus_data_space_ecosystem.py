@@ -369,7 +369,7 @@ class CDSE(Base):
             meta_dict = {k: v for i, (k, v) in enumerate(meta_dict.items()) if i in keep_idx}
             data = data.assign_coords({key: ("time", values) for key, values in meta_dict.items()})
 
-        return data.sortby("time")
+        return data
 
     def _download_item(
         self,
