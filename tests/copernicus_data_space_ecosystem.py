@@ -297,9 +297,7 @@ class TestCDSE(_TestBase, unittest.TestCase):
 
         self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
 
-        self.assertTrue(
-            all(times == ids_dates)
-        )
+        self.assertTrue(all(times == ids_dates))
 
         self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
 
