@@ -365,7 +365,7 @@ class CDSE(Base):
             isinstance(self._param("save_metadata"), (list, tuple))
             and len(self._param("save_metadata")) > 0
         ):
-            meta_dict = gather_meta(items, self._param("save_metadata"))
+            meta_dict = gather_meta(items, self._param("save_metadata"), prop_name="properties")
             meta_dict = {k: v for i, (k, v) in enumerate(meta_dict.items()) if i in keep_idx}
             data = data.assign_coords({key: ("time", values) for key, values in meta_dict.items()})
 

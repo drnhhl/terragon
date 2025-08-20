@@ -126,29 +126,25 @@ def meters_to_crs_unit(meters, shp):
     return distance_units_x, distance_units_y
 
 
-def gather_meta(items: dict, meta_names: list):
+def gather_meta(items: dict, meta_names: list[str], prop_name: str = None):
     # create a dict with metadata: {"prop1": [value1, value2, ...], ...}
     meta_dict = defaultdict(list)
-    # loop through items and collect metadata
+
     for item in items:
-        if not isinstance(item, dict):
-            item = item.to_dict()
+        data = item if isinstance(item, dict) else item.to_dict()
         for key in meta_names:
-            if key in item:
-                meta_dict[key].append(item[key])
-            elif key in item["properties"]:
-                meta_dict[key].append(item["properties"][key])
+            if key in data:
+                meta_dict[key].append(data[key])
+            elif prop_name and key in data[prop_name]:
+                meta_dict[key].append(data[prop_name][key])
             else:
-                raise ValueError(f"Key {key} not found in item properties or features.")
-    return meta_dict
+                raise ValueError(f"Key '{key}' not found in item or its '{prop_name}'.")
+    return dict(meta_dict)
 
 
-def gather_assign_meta(obj, items: dict, ds):
-    if (
-        isinstance(obj._param("save_metadata"), (list, tuple))
-        and len(obj._param("save_metadata")) > 0
-    ):
-        meta_dict = gather_meta(items, obj._param("save_metadata"))
+def gather_assign_meta(meta_names, items: dict, ds, prop_name=None):
+    if isinstance(meta_names, (list, tuple)) and meta_names:
+        meta_dict = gather_meta(items, meta_names, prop_name=prop_name)
         # assign metadata to time dimension as coords
-        ds = ds.assign_coords({key: ("time", values) for key, values in meta_dict.items()})
+        ds = ds.assign_coords({k: ("time", v) for k, v in meta_dict.items()})
     return ds

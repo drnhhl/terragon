@@ -117,7 +117,7 @@ class PC(Base):
                 y=(bounds[1], bounds[3]),
                 **self._param("odc_stac_kwargs", default={}),
             )
-            ds = gather_assign_meta(self, items, ds)
+            ds = gather_assign_meta(self._param("save_metadata"), items, ds, prop_name="properties")
             ds = self._prepare_cube(ds)
             return ds
         else:
