@@ -45,6 +45,7 @@ class Base(ABC):
         download_folder: str = "./eo_download/",
         num_workers: int = 1,
         create_minicube: bool = True,
+        save_metadata: list[str] = [],
     ):
         """Search for items in the backend (This abstract function only takes all arguments and stores them).
 
@@ -59,6 +60,7 @@ class Base(ABC):
         :param download_folder: the folder to download files (also temporary files), defaults to "./eo_download/"
         :param num_workers: the number of workers in parallel to use for downloading, defaults to 1
         :param create_minicube: if True return a xarray.Dataset, otherwise return the downloaded filenames, defaults to True
+        :param save_metadata: list of metadata fields from each image to save as coordinates in the minicube, defaults to []
         """
         # create a union of a dataframe of more than one shape in shp
         if len(shp.index) > 1:
@@ -78,6 +80,7 @@ class Base(ABC):
                 "download_folder": Path(download_folder),
                 "num_workers": num_workers,
                 "create_minicube": create_minicube,
+                "save_metadata": save_metadata,
             }
         )
 
@@ -103,6 +106,7 @@ class Base(ABC):
             "download_folder": (Path("./eo_download/"), False),
             "num_workers": (1, False),
             "create_minicube": (True, False),
+            "save_metadata": ([], False),
         }
 
         if not kwargs and name in defaults:
@@ -160,5 +164,9 @@ class Base(ABC):
             "data_source": self.__class__.__name__,
             "collection": self._param("collection"),
         }
+
+        # sort by time
+        if "time" in ds.dims:
+            ds = ds.sortby("time")
 
         return ds

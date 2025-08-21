@@ -1,4 +1,5 @@
 import warnings
+from collections import defaultdict
 
 import pyproj
 from shapely.geometry import Point
@@ -123,3 +124,27 @@ def meters_to_crs_unit(meters, shp):
     distance_units_y = Point(orig_point).distance(Point(offset_point_in_orig_crs_y))
 
     return distance_units_x, distance_units_y
+
+
+def gather_meta(items: dict, meta_names: list[str], prop_name: str = None):
+    # create a dict with metadata: {"prop1": [value1, value2, ...], ...}
+    meta_dict = defaultdict(list)
+
+    for item in items:
+        data = item if isinstance(item, dict) else item.to_dict()
+        for key in meta_names:
+            if key in data:
+                meta_dict[key].append(data[key])
+            elif prop_name and key in data[prop_name]:
+                meta_dict[key].append(data[prop_name][key])
+            else:
+                raise ValueError(f"Key '{key}' not found in item or its '{prop_name}'.")
+    return dict(meta_dict)
+
+
+def gather_assign_meta(meta_names, items: dict, ds, prop_name=None):
+    if isinstance(meta_names, (list, tuple)) and meta_names:
+        meta_dict = gather_meta(items, meta_names, prop_name=prop_name)
+        # assign metadata to time dimension as coords
+        ds = ds.assign_coords({k: ("time", v) for k, v in meta_dict.items()})
+    return ds

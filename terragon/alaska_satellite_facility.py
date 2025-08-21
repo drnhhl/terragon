@@ -13,7 +13,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, align_resolutions
+from .utils import align_coords, align_resolutions, gather_assign_meta
 
 
 class ASF(Base):
@@ -230,8 +230,13 @@ class ASF(Base):
             delayed(self._download_item)(item, session, output_dir, bands) for item in items
         )
 
+        items = sorted(items, key=lambda it: it.properties.get("startTime"))
+
         if self._param("create_minicube"):
             ds = self._create_minicube(items)
+            ds = gather_assign_meta(
+                self._param("save_metadata"), [item.properties for item in items], ds
+            )
             ds = self._prepare_cube(ds)
 
             if self._param("rm_tmp_files"):
@@ -373,5 +378,5 @@ class ASF(Base):
             for ds, time in zip(time_data, times)
         ]
 
-        data = xr.concat(time_data, dim="time", join="exact").sortby("time")
+        data = xr.concat(time_data, dim="time", join="exact")
         return data

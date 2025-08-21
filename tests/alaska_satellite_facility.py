@@ -2,6 +2,7 @@ import os
 import shutil
 import unittest
 
+import pandas as pd
 from base import _TestBase
 from utils import load_env_variables
 
@@ -80,6 +81,27 @@ class TestASF(_TestBase, unittest.TestCase):
 
         self.assertTrue(
             len(ds.time) == 1
+            and self.width - 1 <= len(ds.x) <= self.width + 1
+            and self.height - 1 <= len(ds.y) <= self.height + 1
+        )
+
+    def test_create_meta(self):
+        """test create with metadata"""
+        args = self.arguments.copy()
+        args["save_metadata"] = ["fileID"]
+
+        ds = self.tg.create(**args)
+
+        self.assertTrue("fileID" in ds.coords)
+        times = (
+            pd.to_datetime(ds["time"].values, utc=True).tz_convert(None).strftime("%Y%m%d").tolist()
+        )
+        ids_dates = [id.split("_")[4].split("T")[0] for id in ds.fileID.values]
+
+        self.assertTrue(times == ids_dates)
+
+        self.assertTrue(
+            len(ds.time) == self.nr_time_steps
             and self.width - 1 <= len(ds.x) <= self.width + 1
             and self.height - 1 <= len(ds.y) <= self.height + 1
         )
