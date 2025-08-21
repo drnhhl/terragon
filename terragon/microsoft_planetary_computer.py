@@ -10,7 +10,7 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 from .base import Base
-from .utils import meters_to_crs_unit
+from .utils import gather_assign_meta, meters_to_crs_unit
 
 
 class PC(Base):
@@ -106,6 +106,8 @@ class PC(Base):
         res = meters_to_crs_unit(self._param("resolution"), shp)
 
         if self._param("create_minicube"):
+            # order items by time because odc.stac.load does not preserve the order (preserve_original_order does not work)
+            items = sorted(items, key=lambda x: x.datetime)
             ds = odc.stac.load(
                 items,
                 bands=self._param("bands"),
@@ -115,6 +117,7 @@ class PC(Base):
                 y=(bounds[1], bounds[3]),
                 **self._param("odc_stac_kwargs", default={}),
             )
+            ds = gather_assign_meta(self._param("save_metadata"), items, ds, prop_name="properties")
             ds = self._prepare_cube(ds)
             return ds
         else:
