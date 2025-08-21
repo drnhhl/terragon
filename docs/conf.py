@@ -1,8 +1,6 @@
 import os
 import sys
 
-import pkg_resources
-
 sys.path.insert(0, os.path.abspath(".."))  # Source code dir relative to this file
 
 import terragon  # noqa: E402
@@ -47,7 +45,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # mock external modules using requirements.txt
-autodoc_mock_imports = []
+autodoc_mock_imports = ['ee'] # add others manually if needed
 with open("../requirements.txt") as f:
     requirements = f.read().splitlines()
 for requirement in requirements:
@@ -55,9 +53,9 @@ for requirement in requirements:
         continue
     if "==" in requirement:
         requirement = requirement.split("==")[0]
-    # use pkg_resources to get the actual name
-    pkg = pkg_resources.get_distribution(requirement)
-    autodoc_mock_imports.append(pkg.get_metadata("top_level.txt").splitlines()[0])
+    autodoc_mock_imports.append(requirement)
+    if '-' in requirement:
+       autodoc_mock_imports.append(requirement.replace("-", "_"))
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
