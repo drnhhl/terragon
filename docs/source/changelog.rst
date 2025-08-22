@@ -1,5 +1,9 @@
 Changelog
 =========
+v0.2.1
+------
+- add feature: save_metadata parameter in order to add meta data to your xarray dataset
+
 v0.2.0
 ------
 - add support for the Alaska Satellite Facility (ASF) API

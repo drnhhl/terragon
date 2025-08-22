@@ -45,7 +45,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # mock external modules using requirements.txt
-autodoc_mock_imports = ['ee'] # add others manually if needed
+autodoc_mock_imports = ["ee"]  # add others manually if needed
 with open("../requirements.txt") as f:
     requirements = f.read().splitlines()
 for requirement in requirements:
@@ -54,8 +54,8 @@ for requirement in requirements:
     if "==" in requirement:
         requirement = requirement.split("==")[0]
     autodoc_mock_imports.append(requirement)
-    if '-' in requirement:
-       autodoc_mock_imports.append(requirement.replace("-", "_"))
+    if "-" in requirement:
+        autodoc_mock_imports.append(requirement.replace("-", "_"))
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
