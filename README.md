@@ -34,11 +34,11 @@ We currently support these data providers:
 ### Installation
 Install the package via PyPi:
 ```python
-pip install terragon-downloader
+pip install "terragon-downloader"
 ```
 Optional with the dependency you want to use:
 ```python
-pip install terragon-downloader[pc]
+pip install "terragon-downloader[pc]"
 ```
 ### Downloading EO data
 ```python
@@ -68,13 +68,15 @@ da = tg.create(shp=gdf, # polygon in geopandas format (minicube will receive the
                resolution=20, # pixel size in meter
                )
 ```
-Other data backends work with the same principle, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/docs/demo_files).
+Other data backends work with the same principle, some may require an account, check out the [Demos](https://github.com/drnhhl/terragon/tree/main/docs/demo_files).
 
 ## Limitations
-Be aware that depending on the collection the data is not mosaicked.
+Users must provide authentication (if required) for the data providers to Terragon and must comply with their licensing agreements. Instructions on how to create accounts and the necessary information for each data provider can be found in the [Demos](https://github.com/drnhhl/terragon/tree/main/docs/demo_files).
+
+This library relies on external data providers. Therefore, the reproducibility cannot be guaranteed and depends on the providers. The data offered may also vary across providers. It is important to note that each provider operates independently and utilizes different processing pipelines. This can result in various products that may not be compatible with one another, even if their collections share a similar name on the platforms of the data providers. Additionally, certain data or patches may be available from some providers but not from others. This includes mosaicking, which depends on the chosen collection and is not handled by this library.
 
 ## Contribute
-You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR.
+You found a bug or a data source is missing? We encourage you to raise an issue or provide a PR. For details, please see the [contributing guideline](https://terragon.readthedocs.io/en/latest/source/contributing.html).
 
 We are looking for contributors to add more collections to CDSE. Please get in touch if you are interested.
 
