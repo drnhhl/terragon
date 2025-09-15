@@ -111,12 +111,15 @@ class CDSE(Base):
         filter_asset_path={"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"},
         **kwargs,
     ):
-        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the Copernicus Data Space Ecosystem collections via stac, return the items and their meta data,
+        and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
         :param use_virtual_rasterio_file: use rasterio virtual file function when True, when False whole file is downloaded, defaults to True
         :param rm_tmp_files: only used with 'use_virtual_rasterio_file=False' to remove the files after the minicube is created, defaults to True
         :param filter_asset_path: manual filtering of the filepath in the AWS bucket, used for collections with ambiguous file names, defaults to {"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"}
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when no items are found or parameters are in the wrong format
         :raises RuntimeError: when the corresponding files for the items are not found
 
@@ -214,11 +217,14 @@ class CDSE(Base):
         return items
 
     def download(self, items):
-        """Download the items from Copernicus Data Space Ecosystem as xr.Dataset or download the files.
+        """Download the items from the Copernicus Data Space Ecosystem and pack them to a xarray.Dataset or download the files and return the file paths.
 
         :param items: items to download
         :return: xarray.Dataset or list of filenames
         """
+        if len(items) < 1:
+            raise ValueError("No items to download.")
+
         if self._param("create_minicube"):
             ds = self._download_to_minicube(
                 items,

@@ -55,9 +55,12 @@ class PC(Base):
         super().create(*args, **kwargs)
 
     def search(self, odc_stac_kwargs={}, *args, **kwargs):
-        """Search for items in the Planetary Computer collections. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the Planetary Computer collections, return the items and their meta data,
+        and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param odc_stac_kwargs: additional parameters for the odc.stac.load function, defaults to {}
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when no items are found or parameters are in the wrong format
         :return: a list of items
         """
@@ -87,7 +90,8 @@ class PC(Base):
         return items
 
     def download(self, items) -> Union[xr.Dataset, list]:
-        """Download the items from the Planetary Computer as xr.Dataset or download the files.
+        """Download the items from the Planetary Computer and return a xarray.Dataset or download the files and return a list of filenames.
+        If `create_minicube` is set to True, a xarray.Dataset will be returned, otherwise a list of filenames will be returned.
 
         :param items: items to download
         :return: xarray.Dataset or list of filenames

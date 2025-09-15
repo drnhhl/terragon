@@ -47,7 +47,8 @@ class Base(ABC):
         create_minicube: bool = True,
         save_metadata: list[str] = [],
     ):
-        """Search for items in the backend (This abstract function only takes all arguments and stores them).
+        """Search for items in the backend (This abstract function only takes all arguments and stores them, the search is done in the child/data provider class).
+        The listed arguments are the same for all data providers, the parameter list may be completed by special parameters of the child class.
 
         :param shp: the shape of the area of interest, the output will be reprojected to the shape crs
         :param collection: collection name

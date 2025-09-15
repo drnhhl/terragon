@@ -53,9 +53,11 @@ class GEE(Base):
         )
 
     def search(self, *args, rm_tmp_files=True, **kwargs) -> ee.ImageCollection:
-        """Search for items in the GEE collections. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the GEE collections, return the items and their meta data, and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param rm_tmp_files: remove temporarily downloaded files after creating the minicube, defaults to True
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when parameters are missing or in the wrong format
         :return: ee.ImageCollection
         """
@@ -80,7 +82,9 @@ class GEE(Base):
         return img_col
 
     def download(self, img_col: ee.ImageCollection) -> Union[xr.Dataset, List]:
-        """Download the clipped images from the GEE ImageCollection, store them as temporary .tif files and create a minicube.
+        """Download the prepared images from the GEE ImageCollection, store them as temporary .tif files and return them as a xarray.Dataset.
+        If `create_minicube` is set to True, a xarray.Dataset will be returned, otherwise a list of filenames will be returned.
+        if `rm_tmp_files` is set to True, the temporary files will be removed after creating the xarray.Dataset.
 
         :param img_col: ee.ImageCollection to download
         :return: xarray.Dataset or list of filenames
