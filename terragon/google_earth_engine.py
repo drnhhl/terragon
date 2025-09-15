@@ -41,10 +41,11 @@ class GEE(Base):
                 "GEE not initialized. Did you run 'ee.Authenticate()' and ee.Initialize(project='my-project')?"
             )
 
-    def retrieve_collections(self, filter_by_name: str = None) -> None:
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> None:
         """Not implemented, because GEE does not have a collection endpoint.
 
-        :param filter_by_name: unused, kept for compatibility, defaults to None
+        :param query: query to filter the collections for in style '{<key>:<regex>}', defaults to {}
+        :param fields: list of fields to include in the response, defaults to []
         :raises NotImplementedError: GEE does not have a collection endpoint
         """
         raise NotImplementedError(

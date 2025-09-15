@@ -20,10 +20,10 @@ class Base(ABC):
     def __init__(self):
         pass
 
-    def create(self, **kwargs):
+    def create(self, *args, **kwargs):
         """Execute search and download within one command.
-        For explanation of parameters see search function."""
-        items = self.search(**kwargs)
+        For explanation of parameters see the 'search' function."""
+        items = self.search(*args, **kwargs)
         return self.download(items)
 
     @abstractmethod

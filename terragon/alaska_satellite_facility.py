@@ -13,7 +13,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, align_resolutions, gather_assign_meta
+from .utils import align_coords, align_resolutions, gather_assign_meta, parse_query
 
 
 class ASF(Base):
@@ -64,31 +64,34 @@ class ASF(Base):
             self.session = self._init_asf_session()
         return self.session
 
-    def retrieve_collections(self, filter_by_name: str = None):
-        """Search the collections provided by the Alaska Satellite Facility.
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> list:
+        """Search the collections provided by the Alaska Satellite Facility. ASF does only support the titles of the collections.
 
-        :param filter_by_name: Name to filter the collections for, defaults to None.
+        :param query: query to filter the title '{title:<regex>}', defaults to {}
+        :param fields: unused
         :raises RuntimeError: If the request to the collections endpoint fails.
-        :return: A list of collection names.
+        :return: a list of collection names
         """
+        warnings.warn(
+            f"Currently Terragon only supports the following collections: {self._supported_collections}"
+        )
+
         # Get all collections, ignoring private or hidden ones
         collections = [
             getattr(asf.PLATFORM, attr) for attr in dir(asf.PLATFORM) if not attr.startswith("_")
         ]
 
-        # Apply optional filtering
-        if filter_by_name:
-            filter_by_name = filter_by_name.lower()
-            collections = [
-                collection for collection in collections if filter_by_name in collection.lower()
-            ]
+        if query:
+            key, regex = parse_query(query)
+
+            if key not in ["id", "title", "name"]:
+                warnings.warn("ASF does not support other keys than the title.")
+
+            collections = [collection for collection in collections if regex.search(collection)]
 
         if not collections:
             raise RuntimeError("Failed to retrieve collections")
 
-        warnings.warn(
-            f"Currently we only support the following collections: {self._supported_collections}"
-        )
         return collections
 
     def search(self, *args, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):

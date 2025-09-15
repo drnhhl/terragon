@@ -1,6 +1,5 @@
 import shutil
 from typing import Union
-from urllib.parse import urljoin
 
 import odc.stac
 import planetary_computer as pc
@@ -10,7 +9,7 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 from .base import Base
-from .utils import gather_assign_meta, meters_to_crs_unit
+from .utils import filter_stac_collections, gather_assign_meta, meters_to_crs_unit
 
 
 class PC(Base):
@@ -39,26 +38,21 @@ class PC(Base):
                 raise ValueError("api_key not in credentials, could not initialize PC.")
             pc.set_subscription_key(credentials["api_key"])
 
-    def retrieve_collections(self, filter_by_name: str = None) -> list:
-        """Search the collections provided by the Planetary Computer.
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> list:
+        """Search the collections provided by Microsoft Planetary Computer.
 
-        :param filter_by_name: name to filter the collections for, defaults to None
-        :raises RuntimeError: if the request to the collections endpoint fails
-        :return: a list of collection names
+        :param query: query to filter the collections for in style '{<key>:<regex>}', defaults to {}
+        :param fields: list of fields to include in the response, defaults to []
+        :return: a list of dictionaries with collection metadata
         """
-        collections_url = urljoin(self._base_url, "collections")
-        response = requests.get(collections_url)
+        catalog = pystac_client.Client.open(self._base_url)
 
-        if response.status_code == 200:
-            data = response.json()
-            collections = [collection["id"] for collection in data["collections"]]
-            if filter_by_name:
-                collections = [
-                    collection for collection in collections if filter_by_name in collection.lower()
-                ]
-            return collections
-        else:
-            raise RuntimeError("Failed to retrieve collections")
+        return filter_stac_collections(catalog, query, fields)
+
+    def create(self, *args, **kwargs):
+        """Execute search and download within one command.
+        For explanation of parameters see the 'search' function."""
+        super().create(*args, **kwargs)
 
     def search(self, odc_stac_kwargs={}, *args, **kwargs):
         """Search for items in the Planetary Computer collections. For a description of the args/kwargs parameters see the Base class function.

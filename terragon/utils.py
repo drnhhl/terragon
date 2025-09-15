@@ -1,3 +1,4 @@
+import re
 import warnings
 from collections import defaultdict
 
@@ -148,3 +149,42 @@ def gather_assign_meta(meta_names, items: dict, ds, prop_name=None):
         # assign metadata to time dimension as coords
         ds = ds.assign_coords({k: ("time", v) for k, v in meta_dict.items()})
     return ds
+
+
+def parse_query(query):
+    """Parse queries like '{<key>:<regex>}' into (key, regex)."""
+    if len(query) > 1:
+        raise ValueError("Query must only contain one '<key>:<regex>'")
+    key, pattern = next(iter(query.items()))
+    return key.strip(), re.compile(pattern, re.IGNORECASE)
+
+
+def filter_stac_collections(catalog, query: dict = {}, fields: list[str] = []) -> list[dict]:
+    """client side filtering of collections from a pystac_client.Client catalog."""
+    collections = list(catalog.get_collections())
+    collections = [c.to_dict() for c in collections]
+
+    if query:
+        key, regex = parse_query(query)
+
+        results = []
+        for collection in collections:
+            v = collection.get(key, "")
+            if isinstance(v, str):
+                if regex.search(v):
+                    results.append(collection)
+            elif isinstance(v, (tuple, list)):
+                if any(regex.search(str(item)) for item in v):
+                    results.append(collection)
+            else:
+                raise ValueError(
+                    f"Collection '{collection.get('id', '')}' field '{key}' is type {type(v)} which is not supported to searched."
+                )
+        collections = results
+
+    if fields:
+        collections = [
+            {field: collection[field] for field in fields if field in collection} 
+            for collection in collections
+        ]
+    return collections
