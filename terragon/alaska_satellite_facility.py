@@ -91,7 +91,7 @@ class ASF(Base):
         )
         return collections
 
-    def search(self, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
+    def search(self, *args, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
         """Search for items in the Alaska Satellite Facility collections. For a description of the args/kwargs parameters see the Base class function.
 
         :param rm_tmp_files: Remove downloaded temporary files after creating the data cube, defaults to True.
@@ -99,7 +99,7 @@ class ASF(Base):
         :raises ValueError: If no items are found for the given search parameters.
         :return: A list of ASF products (items).
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         self._parameters.update(
             {
                 "resampling": resampling,
