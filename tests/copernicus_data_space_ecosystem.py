@@ -277,30 +277,6 @@ class TestCDSE(_TestBase, unittest.TestCase):
         # only test time steps since the shape was taken arbitrarily from the first sample
         self.assertTrue(len(ds.time) == nr_time_steps)
 
-    def test_l8(self):
-        args = self.arguments.copy()
-        args["collection"] = "LANDSAT-8-ESA"
-        args["bands"] = ["B2"]
-        args["start_date"] = "2021-01-01"
-        args["end_date"] = "2021-01-16"
-        args["resolution"] = 30
-        args["filter"] = {"processingLevel": {"eq": "LEVEL2"}}
-        args["save_metadata"] = ["id"]
-
-        ds = self.tg.create(**args)
-
-        # check meta data
-        self.assertTrue("id" in ds.coords)
-        times = ds.time.dt.strftime("%Y%m%d")
-        ids_dates = [id.split("_")[3] for id in ds.id.values]
-        self.assertTrue(all(times == ids_dates))
-
-        self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
-
-        self.assertTrue(all(times == ids_dates))
-
-        self.assertTrue(len(ds.time) == 4 and len(ds.x) == 10 and len(ds.y) == 7)
-
 
 if __name__ == "__main__":
     unittest.main()

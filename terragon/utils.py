@@ -184,7 +184,7 @@ def filter_stac_collections(catalog, query: dict = {}, fields: list[str] = []) -
 
     if fields:
         collections = [
-            {field: collection[field] for field in fields if field in collection} 
+            {field: collection[field] for field in fields if field in collection}
             for collection in collections
         ]
     return collections
