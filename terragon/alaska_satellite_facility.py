@@ -13,7 +13,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, align_resolutions, gather_assign_meta
+from .utils import align_coords, align_resolutions, gather_assign_meta, parse_query
 
 
 class ASF(Base):
@@ -64,42 +64,49 @@ class ASF(Base):
             self.session = self._init_asf_session()
         return self.session
 
-    def retrieve_collections(self, filter_by_name: str = None):
-        """Search the collections provided by the Alaska Satellite Facility.
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> list:
+        """Search the collections provided by the Alaska Satellite Facility. ASF does only support the titles of the collections.
 
-        :param filter_by_name: Name to filter the collections for, defaults to None.
+        :param query: query to filter the title '{title:<regex>}', defaults to {}
+        :param fields: unused
         :raises RuntimeError: If the request to the collections endpoint fails.
-        :return: A list of collection names.
+        :return: a list of collection names
         """
+        warnings.warn(
+            f"Currently Terragon only supports the following collections: {self._supported_collections}"
+        )
+
         # Get all collections, ignoring private or hidden ones
         collections = [
             getattr(asf.PLATFORM, attr) for attr in dir(asf.PLATFORM) if not attr.startswith("_")
         ]
 
-        # Apply optional filtering
-        if filter_by_name:
-            filter_by_name = filter_by_name.lower()
-            collections = [
-                collection for collection in collections if filter_by_name in collection.lower()
-            ]
+        if query:
+            key, regex = parse_query(query)
+
+            if key not in ["id", "title", "name"]:
+                warnings.warn("ASF does not support other keys than the title.")
+
+            collections = [collection for collection in collections if regex.search(collection)]
 
         if not collections:
             raise RuntimeError("Failed to retrieve collections")
 
-        warnings.warn(
-            f"Currently we only support the following collections: {self._supported_collections}"
-        )
         return collections
 
-    def search(self, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs):
-        """Search for items in the Alaska Satellite Facility collections. For a description of the args/kwargs parameters see the Base class function.
+    def search(
+        self, *args, rm_tmp_files=True, resampling=rasterio.enums.Resampling.nearest, **kwargs
+    ):
+        """Search for items in the Alaska Satellite Facility collections, return the items and their meta data,
+        and store the parameters in the class in order to access them later in the download function.
 
         :param rm_tmp_files: Remove downloaded temporary files after creating the data cube, defaults to True.
         :param resampling: Resampling method to use when reprojecting images, defaults to rasterio.enums.Resampling.nearest.
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: If no items are found for the given search parameters.
         :return: A list of ASF products (items).
         """
-        super().search(**kwargs)
+        super().search(*args, **kwargs)
         self._parameters.update(
             {
                 "resampling": resampling,
@@ -142,10 +149,10 @@ class ASF(Base):
         return items
 
     def _download_item(self, item, session, output_dir, bands=None):
-        """Download a complete ASF item via HTTP and extract its relevant TIFF files.
+        """Download a complete ASF item via HTTP and extract its relevant TIFF files and return the data as xarray.Dataset.
 
         If the item has already been downloaded and the expected files exist, the download is skipped.
-        Otherwise, the method downloads the zip file, extracts the specified TIFF files, and updates the item.
+        Otherwise, the method downloads the zip file, extracts the specified TIFF files.
 
         :param item: ASF item containing metadata and the file URL.
         :param session: HTTP session to use for the download.

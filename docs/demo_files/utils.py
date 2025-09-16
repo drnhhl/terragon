@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+from ipytree import Node, Tree
 
 
 def visualize_sat_images(da, gdf, bands):
@@ -24,3 +25,24 @@ def visualize_sat_images(da, gdf, bands):
 
     plt.tight_layout()
     plt.show()
+
+
+def list_of_dicts_to_tree(dicts_list, field=None):
+    def _build_tree(d, parent_name):
+        if isinstance(d, dict):
+            node = Node(parent_name)
+            for k, v in d.items():
+                node.add_node(_build_tree(v, k))
+            return node
+        else:
+            return Node(f"{parent_name}: {d}")
+
+    tree = Tree()
+
+    for i, d in enumerate(dicts_list):
+        root_name = f"Item {i + 1}"
+        if field is not None:
+            root_name = f"{field}: {d.pop(field, 'Unknown')}"
+        tree.add_node(_build_tree(d, root_name))
+
+    return tree

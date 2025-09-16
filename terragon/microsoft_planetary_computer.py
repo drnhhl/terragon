@@ -1,6 +1,5 @@
 import shutil
 from typing import Union
-from urllib.parse import urljoin
 
 import odc.stac
 import planetary_computer as pc
@@ -10,7 +9,7 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 from .base import Base
-from .utils import gather_assign_meta, meters_to_crs_unit
+from .utils import filter_stac_collections, gather_assign_meta, meters_to_crs_unit
 
 
 class PC(Base):
@@ -39,31 +38,24 @@ class PC(Base):
                 raise ValueError("api_key not in credentials, could not initialize PC.")
             pc.set_subscription_key(credentials["api_key"])
 
-    def retrieve_collections(self, filter_by_name: str = None) -> list:
-        """Search the collections provided by the Planetary Computer.
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> list:
+        """Search the collections provided by Microsoft Planetary Computer.
 
-        :param filter_by_name: name to filter the collections for, defaults to None
-        :raises RuntimeError: if the request to the collections endpoint fails
-        :return: a list of collection names
+        :param query: query to filter the collections for in style '{<key>:<regex>}', defaults to {}
+        :param fields: list of fields to include in the response, defaults to []
+        :return: a list of dictionaries with collection metadata
         """
-        collections_url = urljoin(self._base_url, "collections")
-        response = requests.get(collections_url)
+        catalog = pystac_client.Client.open(self._base_url)
 
-        if response.status_code == 200:
-            data = response.json()
-            collections = [collection["id"] for collection in data["collections"]]
-            if filter_by_name:
-                collections = [
-                    collection for collection in collections if filter_by_name in collection.lower()
-                ]
-            return collections
-        else:
-            raise RuntimeError("Failed to retrieve collections")
+        return filter_stac_collections(catalog, query, fields)
 
     def search(self, odc_stac_kwargs={}, *args, **kwargs):
-        """Search for items in the Planetary Computer collections. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the Planetary Computer collections, return the items and their meta data,
+        and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param odc_stac_kwargs: additional parameters for the odc.stac.load function, defaults to {}
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when no items are found or parameters are in the wrong format
         :return: a list of items
         """
@@ -93,7 +85,8 @@ class PC(Base):
         return items
 
     def download(self, items) -> Union[xr.Dataset, list]:
-        """Download the items from the Planetary Computer as xr.Dataset or download the files.
+        """Download the items from the Planetary Computer and return a xarray.Dataset or download the files and return a list of filenames.
+        If `create_minicube` is set to True, a xarray.Dataset will be returned, otherwise a list of filenames will be returned.
 
         :param items: items to download
         :return: xarray.Dataset or list of filenames

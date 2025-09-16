@@ -41,10 +41,11 @@ class GEE(Base):
                 "GEE not initialized. Did you run 'ee.Authenticate()' and ee.Initialize(project='my-project')?"
             )
 
-    def retrieve_collections(self, filter_by_name: str = None) -> None:
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> None:
         """Not implemented, because GEE does not have a collection endpoint.
 
-        :param filter_by_name: unused, kept for compatibility, defaults to None
+        :param query: query to filter the collections for in style '{<key>:<regex>}', defaults to {}
+        :param fields: list of fields to include in the response, defaults to []
         :raises NotImplementedError: GEE does not have a collection endpoint
         """
         raise NotImplementedError(
@@ -52,9 +53,11 @@ class GEE(Base):
         )
 
     def search(self, *args, rm_tmp_files=True, **kwargs) -> ee.ImageCollection:
-        """Search for items in the GEE collections. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the GEE collections, return the items and their meta data, and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param rm_tmp_files: remove temporarily downloaded files after creating the minicube, defaults to True
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when parameters are missing or in the wrong format
         :return: ee.ImageCollection
         """
@@ -79,7 +82,9 @@ class GEE(Base):
         return img_col
 
     def download(self, img_col: ee.ImageCollection) -> Union[xr.Dataset, List]:
-        """Download the clipped images from the GEE ImageCollection, store them as temporary .tif files and create a minicube.
+        """Download the prepared images from the GEE ImageCollection, store them as temporary .tif files and return them as a xarray.Dataset.
+        If `create_minicube` is set to True, a xarray.Dataset will be returned, otherwise a list of filenames will be returned.
+        if `rm_tmp_files` is set to True, the temporary files will be removed after creating the xarray.Dataset.
 
         :param img_col: ee.ImageCollection to download
         :return: xarray.Dataset or list of filenames

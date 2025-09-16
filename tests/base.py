@@ -33,7 +33,9 @@ class _TestBase:
         self.width, self.height, self.nr_time_steps = 27, 17, 2
 
     def test_collections(self):
-        col = self.tg.retrieve_collections("sentinel")
+        col = self.tg.retrieve_collections(query={"id": "sentinel"})
+        self.assertTrue(len(col) > 0)
+        col = self.tg.retrieve_collections(fields=["id"])
         self.assertTrue(len(col) > 0)
 
     def test_search(self):
