@@ -49,11 +49,6 @@ class PC(Base):
 
         return filter_stac_collections(catalog, query, fields)
 
-    def create(self, *args, **kwargs):
-        """Execute search and download within one command.
-        For explanation of parameters see the 'search' function."""
-        super().create(*args, **kwargs)
-
     def search(self, odc_stac_kwargs={}, *args, **kwargs):
         """Search for items in the Planetary Computer collections, return the items and their meta data,
         and store the parameters in the class in order to access them later in the download function.
