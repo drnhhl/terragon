@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 import boto3
 import geopandas as gpd
 import pandas as pd
+import pystac_client
 import rasterio
 import requests
 import rioxarray as rxr
@@ -16,7 +17,7 @@ from rasterio.vrt import WarpedVRT
 from shapely.geometry import box
 
 from .base import Base
-from .utils import align_coords, align_resolutions, gather_meta
+from .utils import align_coords, align_resolutions, filter_stac_collections, gather_meta
 
 
 class CDSE(Base):
@@ -74,8 +75,8 @@ class CDSE(Base):
         :raises ValueError: when the credentials are in the wrong format
         """
         super().__init__()
-        self.base_url = base_url
-        self.end_point_url = end_point_url
+        self._base_url = base_url
+        self._end_point_url = end_point_url
         if credentials:
             if "aws_access_key_id" not in credentials or "aws_secret_access_key" not in credentials:
                 raise ValueError(
@@ -86,29 +87,20 @@ class CDSE(Base):
             credentials = {"aws_access_key_id": None, "aws_secret_access_key": None}
         self.credentials = credentials
 
-    def retrieve_collections(self, filter_by_name: str = None):
+    def retrieve_collections(self, query: dict = {}, fields: list[str] = []) -> list:
         """Search the collections provided by Copernicus Data Space Ecosystem.
 
-        :param filter_by_name: name to filter the collections for, defaults to None
-        :raises RuntimeError: if the request to the collections endpoint fails
-        :return: a list of collection names
+        :param query: query to filter the collections for in style '{<key>:<regex>}', defaults to {}
+        :param fields: list of fields to include in the response, defaults to []
+        :return: a list of dictionaries with collection metadata
         """
-        collections_url = urljoin(self.base_url, "collections")
-        response = requests.get(collections_url)
+        warnings.warn(
+            f"Currently Terragon only supports the following collections: {self._supported_collections}"
+        )
 
-        if response.status_code == 200:
-            data = response.json()
-            collections = [collection["id"] for collection in data["collections"]]
-            if filter_by_name:
-                collections = [
-                    collection for collection in collections if filter_by_name in collection.lower()
-                ]
-            warnings.warn(
-                f"Currently we only support the following collections: {self._supported_collections}"
-            )
-            return collections
-        else:
-            raise RuntimeError("Failed to retrieve collections")
+        catalog = pystac_client.Client.open(self._base_url)
+
+        return filter_stac_collections(catalog, query, fields)
 
     def search(
         self,
@@ -119,12 +111,15 @@ class CDSE(Base):
         filter_asset_path={"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"},
         **kwargs,
     ):
-        """Search for items in the Copernicus Data Space Ecosystem collections via stac. For a description of the args/kwargs parameters see the Base class function.
+        """Search for items in the Copernicus Data Space Ecosystem collections via stac, return the items and their meta data,
+        and store the parameters in the class in order to access them later in the download function.
+        For a description of the args/kwargs parameters see the Base class function.
 
         :param resampling: rasterio Resampling method is used to reproject the cubes, defaults to rasterio.enums.Resampling.nearest
         :param use_virtual_rasterio_file: use rasterio virtual file function when True, when False whole file is downloaded, defaults to True
         :param rm_tmp_files: only used with 'use_virtual_rasterio_file=False' to remove the files after the minicube is created, defaults to True
         :param filter_asset_path: manual filtering of the filepath in the AWS bucket, used for collections with ambiguous file names, defaults to {"COP-DEM": ".*/DEM/.*", "SENTINEL-2": ".*/IMG_DATA/.*"}
+        :param args/kwargs: Parameters which are handled by the parent class, these parameters are the same for all data providers. See the 'Base' class for more information.
         :raises ValueError: when no items are found or parameters are in the wrong format
         :raises RuntimeError: when the corresponding files for the items are not found
 
@@ -203,7 +198,7 @@ class CDSE(Base):
         for i in range(1, 100):
             _data = data.copy()
             _data["page"] = i
-            response = requests.post(urljoin(self.base_url, "search"), json=_data)
+            response = requests.post(urljoin(self._base_url, "search"), json=_data)
             response.raise_for_status()
             page = response.json()
 
@@ -222,11 +217,14 @@ class CDSE(Base):
         return items
 
     def download(self, items):
-        """Download the items from Copernicus Data Space Ecosystem as xr.Dataset or download the files.
+        """Download the items from the Copernicus Data Space Ecosystem and pack them to a xarray.Dataset or download the files and return the file paths.
 
         :param items: items to download
         :return: xarray.Dataset or list of filenames
         """
+        if len(items) < 1:
+            raise ValueError("No items to download.")
+
         if self._param("create_minicube"):
             ds = self._download_to_minicube(
                 items,
@@ -471,9 +469,9 @@ class CDSE(Base):
         session = rasterio.session.AWSSession(
             aws_unsigned=False,
             endpoint_url=(
-                urlparse(self.end_point_url).netloc
-                if "://" in self.end_point_url
-                else self.end_point_url
+                urlparse(self._end_point_url).netloc
+                if "://" in self._end_point_url
+                else self._end_point_url
             ),
             aws_access_key_id=self.credentials["aws_access_key_id"],
             aws_secret_access_key=self.credentials["aws_secret_access_key"],
@@ -492,7 +490,7 @@ class CDSE(Base):
                 aws_access_key_id=self.credentials["aws_access_key_id"],
                 aws_secret_access_key=self.credentials["aws_secret_access_key"],
                 region_name="default",
-            ).resource("s3", endpoint_url=self.end_point_url)
+            ).resource("s3", endpoint_url=self._end_point_url)
 
             _s3.Bucket("eodata").download_file(f_path.as_posix(), download_path)
 
@@ -511,7 +509,7 @@ class CDSE(Base):
             aws_access_key_id=self.credentials["aws_access_key_id"],
             aws_secret_access_key=self.credentials["aws_secret_access_key"],
             region_name="default",
-        ).resource("s3", endpoint_url=self.end_point_url)
+        ).resource("s3", endpoint_url=self._end_point_url)
 
         # extract item path
         try:

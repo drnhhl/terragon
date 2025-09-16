@@ -24,6 +24,7 @@
    :caption: Examples:
 
    demo_files/terragon_workflow
+   demo_files/data_discovery
    demo_files/demo_gee
    demo_files/demo_pc
    demo_files/demo_cdse
