@@ -1,5 +1,11 @@
 Changelog
 =========
+v0.3.0
+------
+- changes for JOSS paper review
+- improved documentation
+- searchable collections with metadata
+
 v0.2.1
 ------
 - add feature: save_metadata parameter in order to add meta data to your xarray dataset
