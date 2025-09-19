@@ -7,22 +7,22 @@ tags:
 authors:
   - name: Adrian Höhl^[corresponding author]
     orcid: 0000-0003-3380-4489
-    affiliation: 1
+    affiliation: "1, 2"
   - name: Paul Höhn
     orcid: 0009-0002-5953-8887
-    affiliation: "1, 2"
+    affiliation: "1, 3"
   - name: Xiao Xiang Zhu
     orcid: 0000-0001-5530-3613
-    affiliation: "1, 3"
+    affiliation: "1, 2"
 
 affiliations:
  - name: Chair of Data Science in Earth Observation, Technical University of Munich
    index: 1
- - name: Remote Sensing Technology Institute (IMF), German Aerospace Center (DLR)
-   index: 2
  - name: Munich Center for Machine Learning
+   index: 2
+ - name: Remote Sensing Technology Institute (IMF), German Aerospace Center (DLR)
    index: 3
-date: 30 June 2025
+date: 19 September 2025
 bibliography: paper.bib
 
 ---
