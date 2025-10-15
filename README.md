@@ -17,6 +17,9 @@
     <a href='https://pypi.python.org/pypi/terragon-downloader'>
         <img src='https://img.shields.io/pypi/v/terragon-downloader.svg' alt='PyPI' />
     </a>
+    <a style="border-width:0" href="https://doi.org/10.21105/joss.08857">
+    <img src="https://joss.theoj.org/papers/10.21105/joss.08857/status.svg" alt="DOI badge" >
+    </a>
     <a href="https://opensource.org/licenses/MIT" target="_blank">
         <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
     </a>
@@ -84,7 +87,18 @@ We are looking for contributors to add more collections to CDSE. Please get in t
 This work is licensed under the MIT license.
 
 ## Citation
-If you use this work, please consider citing the following paper: Coming soon.
-
+If you use this work, please consider citing the following paper:
+```
+@article{Höhl2025,
+    title = {Terragon: A Unified Framework for Earth Observation Data Cube Generation},
+    author = {Höhl, Adrian and Höhn, Paul and Zhu, Xiao Xiang},
+    doi = {10.21105/joss.08857},
+    url = {https://doi.org/10.21105/joss.08857},
+    year = {2025},
+    publisher = {The Open Journal},
+    volume = {10}, number = {114}, pages = {8857},
+    journal = {Journal of Open Source Software} 
+}
+```
 ## Acknowledgement
 This work is inspired by [cubo](https://github.com/ESDS-Leipzig/cubo)

@@ -1,0 +1,44 @@
+cff-version: "1.2.0"
+authors:
+- family-names: Höhl
+  given-names: Adrian
+  orcid: "https://orcid.org/0000-0003-3380-4489"
+- family-names: Höhn
+  given-names: Paul
+  orcid: "https://orcid.org/0009-0002-5953-8887"
+- family-names: Zhu
+  given-names: Xiao Xiang
+  orcid: "https://orcid.org/0000-0001-5530-3613"
+contact:
+- family-names: Höhl
+  given-names: Adrian
+  orcid: "https://orcid.org/0000-0003-3380-4489"
+doi: 10.5281/zenodo.17158606
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Höhl
+    given-names: Adrian
+    orcid: "https://orcid.org/0000-0003-3380-4489"
+  - family-names: Höhn
+    given-names: Paul
+    orcid: "https://orcid.org/0009-0002-5953-8887"
+  - family-names: Zhu
+    given-names: Xiao Xiang
+    orcid: "https://orcid.org/0000-0001-5530-3613"
+  date-published: 2025-10-14
+  doi: 10.21105/joss.08857
+  issn: 2475-9066
+  issue: 114
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 8857
+  title: "Terragon: A Unified Framework for Earth Observation Data Cube
+    Generation"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.08857"
+  volume: 10
+title: "Terragon: A Unified Framework for Earth Observation Data Cube
+  Generation"
