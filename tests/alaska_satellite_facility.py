@@ -27,6 +27,7 @@ class TestASF(_TestBase, unittest.TestCase):
         credentials = {
             "asf_username": os.getenv("ASF_USERNAME"),
             "asf_password": os.getenv("ASF_PASSWORD"),
+            "asf_edl_token": os.getenv("ASF_EDL_TOKEN"),
         }
         self.tg = terragon.init("asf", credentials=credentials)
         self.arguments["start_date"] = "2021-01-01"

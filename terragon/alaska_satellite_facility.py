@@ -23,7 +23,7 @@ class ASF(Base):
 
     Currently, the following satellite data collections are supported: SENTINEL-1, ALOS PALSAR, and ALOS AVNIR-2.
 
-    :param credentials: A dictionary for ASF authentication. Expected format: {'asf_username': <username>, 'asf_password': <pwd>}.
+    :param credentials: A dictionary for ASF authentication. Expected format: {'asf_username': <username>, 'asf_password': <pwd>, 'asf_edl_token': <token>}
     """
 
     _chunk_size = 131072  # chunks size for downloading files
@@ -43,17 +43,36 @@ class ASF(Base):
     def _init_asf_session(self):
         """Authenticate and initialize an ASF session.
 
+        Attempts authentication using username/password credentials first.
+        If that fails, falls back to token-based authentication (EDL token).
+
         :return: An authenticated ASF session object.
-        :raises ValueError: If credentials are not provided.
+        :raises ValueError: If no credentials or token are available, or authentication fails.
         """
-        if not self.credentials:
-            raise ValueError(
-                "Credentials are required to initialize an ASF session for downloading."
-            )
-        return asf.ASFSession().auth_with_creds(
-            username=self.credentials.get("asf_username"),
-            password=self.credentials.get("asf_password"),
-        )
+        session = asf.ASFSession()
+        
+        # Try username and password authentication first
+        if self.credentials and "asf_username" in self.credentials and "asf_password" in self.credentials:
+            try:
+                return session.auth_with_creds(
+                    username=self.credentials.get("asf_username"),
+                    password=self.credentials.get("asf_password"),
+                )
+            except Exception as e:
+                print(f"Username/password authentication failed: {e}. Attempting token authentication...")
+        
+        # Fall back to token-based authentication
+        try:
+            edl_token = self.credentials.get("asf_edl_token")
+            if not edl_token:
+                raise ValueError(
+                    "No valid credentials provided. Please provide either "
+                    "{'asf_username': <username>, 'asf_password': <pwd>} or "
+                    "{'asf_edl_token': <token>}."
+                )
+            return session.auth_with_token(edl_token)
+        except Exception as e:
+            raise ValueError(f"Failed to authenticate with ASF: {e}")
 
     def _get_session(self):
         """Lazily initialize and return the ASF session.
