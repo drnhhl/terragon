@@ -54,5 +54,6 @@ jobs:
         S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
         ASF_USERNAME: ${{ secrets.ASF_USERNAME }}
         ASF_PASSWORD: ${{ secrets.ASF_PASSWORD }}
+        ASF_EDL_TOKEN: ${{ secrets.ASF_EDL_TOKEN }}
       run: |
         python -m unittest discover -s ./tests -p '*.py'

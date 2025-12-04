@@ -50,17 +50,23 @@ class ASF(Base):
         :raises ValueError: If no credentials or token are available, or authentication fails.
         """
         session = asf.ASFSession()
-        
+
         # Try username and password authentication first
-        if self.credentials and "asf_username" in self.credentials and "asf_password" in self.credentials:
+        if (
+            self.credentials
+            and "asf_username" in self.credentials
+            and "asf_password" in self.credentials
+        ):
             try:
                 return session.auth_with_creds(
                     username=self.credentials.get("asf_username"),
                     password=self.credentials.get("asf_password"),
                 )
             except Exception as e:
-                print(f"Username/password authentication failed: {e}. Attempting token authentication...")
-        
+                warnings.warn(
+                    f"Username/password authentication failed: {e}. Attempting token authentication..."
+                )
+
         # Fall back to token-based authentication
         try:
             edl_token = self.credentials.get("asf_edl_token")
